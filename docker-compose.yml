@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: srci-db
+    environment:
+      POSTGRES_DB: srci
+      POSTGRES_USER: srci
+      POSTGRES_PASSWORD: srci
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: srci-backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://srci:srci@db:5432/srci
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./scripts:/scripts
+    command: >
+      bash -c "/scripts/run_migrations.sh && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  pgdata:

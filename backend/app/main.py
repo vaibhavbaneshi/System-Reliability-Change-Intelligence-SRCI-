@@ -9,6 +9,7 @@ from app.api.impact import router as impact_router
 from app.api.changes_read import router as changes_read_router
 from app.api.change_detail import router as change_detail_router
 from app.api.change_impact import router as change_impact_router
+from app.api.incidents import router as incidents_router
 
 app = FastAPI(title="SRCI")
 
@@ -20,6 +21,7 @@ app.include_router(impact_router)
 app.include_router(changes_read_router)
 app.include_router(change_detail_router)
 app.include_router(change_impact_router)
+app.include_router(incidents_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

@@ -10,6 +10,10 @@ from app.api.changes_read import router as changes_read_router
 from app.api.change_detail import router as change_detail_router
 from app.api.change_impact import router as change_impact_router
 from app.api.incidents import router as incidents_router
+from app.api.correlation import router as correlate_incident
+from app.api.hypotheses import router as hypotheses_router
+from app.api.evidence import router as evidence_router
+from app.api.explain import router as explain_router
 
 app = FastAPI(title="SRCI")
 
@@ -22,6 +26,10 @@ app.include_router(changes_read_router)
 app.include_router(change_detail_router)
 app.include_router(change_impact_router)
 app.include_router(incidents_router)
+app.include_router(correlate_incident)
+app.include_router(hypotheses_router)
+app.include_router(evidence_router)
+app.include_router(explain_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

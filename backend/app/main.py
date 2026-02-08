@@ -5,6 +5,10 @@ from app.api.ingest import router as ingest_router
 from app.api.services import router as services_router
 from app.api.dependencies import router as dependencies_router
 from app.api.changes import router as changes_router
+from app.api.impact import router as impact_router
+from app.api.changes_read import router as changes_read_router
+from app.api.change_detail import router as change_detail_router
+from app.api.change_impact import router as change_impact_router
 
 app = FastAPI(title="SRCI")
 
@@ -12,6 +16,10 @@ app.include_router(ingest_router)
 app.include_router(services_router)
 app.include_router(dependencies_router)
 app.include_router(changes_router)
+app.include_router(impact_router)
+app.include_router(changes_read_router)
+app.include_router(change_detail_router)
+app.include_router(change_impact_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

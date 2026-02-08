@@ -1,0 +1,5 @@
+name: notification-service
+owner_team: platform
+criticality: medium
+depends_on:
+  - auth-service

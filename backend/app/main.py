@@ -1,8 +1,11 @@
 import os
 import psycopg2
 from fastapi import FastAPI
+from app.api.ingest import router as ingest_router
 
 app = FastAPI(title="SRCI")
+
+app.include_router(ingest_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -17,3 +20,7 @@ def health():
         return {"status": "ok", "db": "connected"}
     except Exception as e:
         return {"status": "error", "db": str(e)}
+    
+@app.get("/")
+def root():
+    return {"message": "SRCI backend running"}

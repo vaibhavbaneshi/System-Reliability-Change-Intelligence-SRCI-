@@ -125,3 +125,6 @@ CREATE TABLE IF NOT EXISTS evidence (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by TEXT
 );
+
+ALTER TABLE root_cause_hypotheses
+ADD COLUMN change_id UUID;

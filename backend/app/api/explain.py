@@ -5,7 +5,7 @@ from app.genai.explainer import generate_explanation
 from fastapi import HTTPException
 
 router = APIRouter()
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 @router.get("/incidents/{incident_id}/explanation")
 def explain_incident(incident_id: str):

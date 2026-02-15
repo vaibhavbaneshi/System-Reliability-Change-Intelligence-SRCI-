@@ -1,6 +1,6 @@
 import psycopg2
 from datetime import timedelta
-
+from app.reasoning.graph_traversal import get_downstream_services
 
 def correlate_incident_to_changes(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
@@ -27,7 +27,8 @@ def correlate_incident_to_changes(db_url: str, incident_id: str):
         """,
         (incident_id,),
     )
-    affected_services = {r[0] for r in cur.fetchall()}
+    direct_services = {r[0] for r in cur.fetchall()}
+    affected_services = get_downstream_services(conn, direct_services)
 
     # 3️⃣ Candidate changes (within 24h before incident)
     cur.execute(

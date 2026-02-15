@@ -14,6 +14,7 @@ from app.api.correlation import router as correlate_incident
 from app.api.hypotheses import router as hypotheses_router
 from app.api.evidence import router as evidence_router
 from app.api.explain import router as explain_router
+from app.api.reasoning import router as reasoning_router
 
 app = FastAPI(title="SRCI")
 
@@ -30,6 +31,7 @@ app.include_router(correlate_incident)
 app.include_router(hypotheses_router)
 app.include_router(evidence_router)
 app.include_router(explain_router)
+app.include_router(reasoning_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

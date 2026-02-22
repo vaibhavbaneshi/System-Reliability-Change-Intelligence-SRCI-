@@ -1,5 +1,5 @@
 import psycopg2
-from datetime import datetime
+from datetime import timedelta
 from app.reasoning.graph_traversal import get_downstream_services
 
 
@@ -30,21 +30,21 @@ def build_features_for_incident(db_url: str, incident_id: str):
     )
     direct_services = [r[0] for r in cur.fetchall()]
 
-    # 3️⃣ Get expanded downstream services
+    # 3️⃣ Expand downstream services (graph reasoning)
     affected_services = get_downstream_services(conn, direct_services)
 
-    # 4️⃣ Candidate changes (24h window)
+    # 4️⃣ Candidate changes (24h window BEFORE incident)
     cur.execute(
         """
         SELECT id, created_at
         FROM changes
-        WHERE created_at >= %s
+        WHERE created_at BETWEEN %s AND %s
         """,
-        (incident_start,),
+        (incident_start - timedelta(hours=24), incident_start),
     )
     changes = cur.fetchall()
 
-    # Clear previous features (idempotent)
+    # Idempotency
     cur.execute(
         "DELETE FROM incident_change_features WHERE incident_id = %s",
         (incident_id,),
@@ -52,62 +52,78 @@ def build_features_for_incident(db_url: str, incident_id: str):
 
     for change_id, change_time in changes:
 
-        # Impact score
+        # ---------- Temporal Proximity ----------
+        hours_diff = abs((incident_start - change_time).total_seconds()) / 3600
+        temporal_proximity = max(0.0, 1 - (hours_diff / 24))
+
+        # ---------- Service Overlap ----------
         cur.execute(
             """
-            SELECT impact_level
+            SELECT entity_id
             FROM change_impacts
             WHERE change_id = %s
               AND entity_type = 'service'
             """,
             (change_id,),
         )
+        impacted_services = {r[0] for r in cur.fetchall()}
 
-        impact_score = 0.0
-        graph_distance = 3  # default large
+        overlap_count = len(impacted_services.intersection(set(affected_services)))
+        service_overlap = min(1.0, overlap_count)
 
-        rows = cur.fetchall()
-        for (impact_level,) in rows:
-            impact_score += {
-                "high": 0.7,
-                "medium": 0.4,
-                "low": 0.2,
-            }.get(impact_level, 0)
+        # ---------- Graph Distance ----------
+        # 0 if direct overlap, 1 if indirect, 2 if weak
+        if overlap_count > 0:
+            graph_distance = 0
+        elif impacted_services:
+            graph_distance = 1
+        else:
+            graph_distance = 2
 
-        impact_score = min(impact_score, 1.0)
+        # ---------- Criticality Score ----------
+        if impacted_services:
+            cur.execute(
+                """
+                SELECT MAX(
+                    CASE criticality
+                        WHEN 'high' THEN 1.0
+                        WHEN 'medium' THEN 0.6
+                        WHEN 'low' THEN 0.3
+                        ELSE 0.0
+                    END
+                )
+                FROM services
+                WHERE id = ANY(%s::uuid[])
+                """,
+                (list(impacted_services),),
+            )
 
-        # Time delta (hours)
-        time_delta = abs((incident_start - change_time).total_seconds()) / 3600
+            criticality_score = cur.fetchone()[0] or 0.0
+        else:
+            criticality_score = 0.0
 
-        # Evidence count
-        cur.execute(
-            """
-            SELECT COUNT(*)
-            FROM evidence
-            WHERE incident_id = %s
-              AND reference ILIKE %s
-            """,
-            (incident_id, f"%{change_id}%"),
-        )
-        evidence_count = cur.fetchone()[0]
 
-        # Insert feature row
+        # ---------- Insert Feature Row ----------
         cur.execute(
             """
             INSERT INTO incident_change_features
-              (incident_id, change_id, impact_score,
-               graph_distance, time_delta_hours,
-               evidence_count, label)
+              (incident_id,
+               change_id,
+               temporal_proximity,
+               service_overlap,
+               graph_distance,
+               criticality_score,
+               label)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 incident_id,
                 change_id,
-                impact_score,
+                temporal_proximity,
+                service_overlap,
                 graph_distance,
-                time_delta,
-                evidence_count,
-                0,  # label unknown
+                criticality_score,
+                0,  # label unknown initially
             ),
         )
 

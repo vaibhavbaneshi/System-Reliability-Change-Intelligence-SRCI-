@@ -1,7 +1,9 @@
-def get_downstream_services(conn, service_ids: set):
-    """
-    Recursively find services impacted downstream via dependencies.
-    """
+from app.config.settings import PROPAGATING_DEPENDENCIES
+
+def get_downstream_services(conn, service_ids):
+    if not service_ids:
+        return set()
+
     cur = conn.cursor()
 
     visited = set(service_ids)
@@ -10,17 +12,18 @@ def get_downstream_services(conn, service_ids: set):
     while frontier:
         cur.execute(
             """
-            SELECT target_id
+            SELECT source_id
             FROM dependencies
-            WHERE source_type = 'service'
-              AND target_type = 'service'
-              AND source_id = ANY(%s::uuid[])
+            WHERE target_id = ANY(%s::uuid[])
+              AND dependency_type = ANY(%s)
             """,
-            (list(frontier),),
+            (
+                list(frontier),
+                list(PROPAGATING_DEPENDENCIES),
+            ),
         )
 
-        next_level = {row[0] for row in cur.fetchall()}
-        next_level -= visited
+        next_level = {row[0] for row in cur.fetchall()} - visited
 
         visited.update(next_level)
         frontier = next_level

@@ -12,6 +12,7 @@ echo "Postgres is ready. Running SRCI database migrations..."
 
 # Run base schema
 psql "$DATABASE_URL" -f app/migrations/versions/initial_schema.sql
+psql "$DATABASE_URL" -f app/migrations/versions/add_feature_columns.sql
 
 # Run ML feature schema
 psql "$DATABASE_URL" -f app/migrations/versions/incident_change_features.sql

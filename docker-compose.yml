@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: srci
       POSTGRES_USER: srci
       POSTGRES_PASSWORD: srci
+      PROPAGATING_DEPENDENCIES: runtine,sync_api,http
     ports:
       - "5432:5432"
     volumes:

@@ -8,4 +8,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 @router.post("/train")
 def train():
     result = train_model(DATABASE_URL)
-    return result
+    return {
+        "status": "model trained",
+        "metrics": result
+    }

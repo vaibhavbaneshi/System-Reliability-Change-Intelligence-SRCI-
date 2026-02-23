@@ -1,18 +1,77 @@
 import os
 import psycopg2
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+
 from app.genai.explainer import generate_explanation
-from fastapi import HTTPException
+from app.ml.predictor import predict_for_incident
+from app.reasoning.rca_guardrails import (
+    detect_weak_signal,
+    detect_close_competition,
+)
 
 router = APIRouter()
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
+
+# ==================================================
+# Debug trace builder (INTERNAL HELPER — no route!)
+# ==================================================
+def build_debug_trace(predictions: list):
+    if not predictions:
+        return {}
+
+    top = predictions[0]
+    runner_up = predictions[1] if len(predictions) > 1 else None
+
+    feature_snapshot = (
+        top.get("decision_trace", {}).get("feature_snapshot", {})
+    )
+
+    # Ranking explanation
+    if runner_up:
+        delta = top["hybrid_score"] - runner_up["hybrid_score"]
+        why_text = (
+            f"Top candidate outranks next change by {delta:.3f} hybrid score."
+        )
+    else:
+        why_text = "Only candidate available for this incident."
+
+    return {
+        "ranking_factors": {
+            "rule_weight": top.get("decision_trace", {})
+                .get("weights", {})
+                .get("rule_weight"),
+            "ml_weight": top.get("decision_trace", {})
+                .get("weights", {})
+                .get("ml_weight"),
+            "graph_penalty": top.get("decision_trace", {})
+                .get("components", {})
+                .get("graph_penalty"),
+        },
+        "feature_vector": feature_snapshot,
+        "why_ranked_above_others": why_text,
+        "competing_candidates": [
+            {
+                "change_id": c["change_id"],
+                "hybrid_score": c["hybrid_score"],
+                "confidence_band": c.get("confidence_band"),
+            }
+            for c in predictions[1:]
+        ],
+    }
+
+
+# ==================================================
+# MAIN ENDPOINT
+# ==================================================
 @router.get("/incidents/{incident_id}/explanation")
 def explain_incident(incident_id: str):
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
+    # --------------------------------------------------
     # Incident
+    # --------------------------------------------------
     cur.execute(
         """
         SELECT title, severity, started_at
@@ -25,24 +84,50 @@ def explain_incident(incident_id: str):
     incident = cur.fetchone()
 
     if incident is None:
+        cur.close()
+        conn.close()
         raise HTTPException(
             status_code=404,
-            detail=f"Incident {incident_id} not found"
+            detail=f"Incident {incident_id} not found",
         )
 
-    # Hypotheses
+    # --------------------------------------------------
+    # Affected services
+    # --------------------------------------------------
     cur.execute(
         """
-        SELECT description, confidence
-        FROM root_cause_hypotheses
-        WHERE incident_id = %s
-        ORDER BY confidence DESC
+        SELECT s.id, s.name
+        FROM incident_entities ie
+        JOIN services s ON ie.entity_id = s.id
+        WHERE ie.incident_id = %s
+          AND ie.entity_type = 'service'
         """,
         (incident_id,),
     )
-    hypotheses = cur.fetchall()
+    services = cur.fetchall()
 
+    # --------------------------------------------------
+    # Root cause hypotheses
+    # --------------------------------------------------
+    cur.execute(
+        """
+        SELECT
+            r.change_id,
+            r.confidence,
+            c.description,
+            c.created_at
+        FROM root_cause_hypotheses r
+        LEFT JOIN changes c ON r.change_id = c.id
+        WHERE r.incident_id = %s
+        ORDER BY r.confidence DESC
+        """,
+        (incident_id,),
+    )
+    hypotheses_rows = cur.fetchall()
+
+    # --------------------------------------------------
     # Evidence
+    # --------------------------------------------------
     cur.execute(
         """
         SELECT source_type, reference
@@ -51,29 +136,90 @@ def explain_incident(incident_id: str):
         """,
         (incident_id,),
     )
-    evidence = cur.fetchall()
+    evidence_rows = cur.fetchall()
 
     cur.close()
     conn.close()
 
+    # --------------------------------------------------
+    # ML + Hybrid predictions
+    # --------------------------------------------------
+    prediction_result = predict_for_incident(DATABASE_URL, incident_id)
+    candidates = prediction_result.get("predictions", [])
+
+    weak_signal = detect_weak_signal(candidates)
+    close_competition = detect_close_competition(candidates)
+
+    # ✅ FIXED: correct call
+    debug_trace = build_debug_trace(candidates)
+
+    top_candidate = candidates[0] if candidates else None
+
+    # --------------------------------------------------
+    # RCA summary
+    # --------------------------------------------------
+    rca_summary = None
+    if top_candidate:
+        rca_summary = {
+            "top_change_id": top_candidate.get("change_id"),
+            "top_change_description": top_candidate.get("change_description"),
+            "hybrid_score": top_candidate.get("hybrid_score"),
+            "confidence_band": top_candidate.get("confidence_band"),
+            "rule_confidence": top_candidate.get("rule_confidence"),
+            "ml_probability": top_candidate.get("ml_probability"),
+            "graph_distance": (
+                top_candidate.get("decision_trace", {})
+                .get("feature_snapshot", {})
+                .get("graph_distance")
+            ),
+        }
+
+    # --------------------------------------------------
+    # Build hypotheses safely
+    # --------------------------------------------------
+    hypotheses = [
+        {
+            "change_id": row[0],
+            "confidence": float(row[1]) if row[1] is not None else 0.0,
+            "description": row[2],
+            "created_at": row[3].isoformat() if row[3] else None,
+        }
+        for row in hypotheses_rows
+    ]
+
+    # --------------------------------------------------
+    # Context for LLM
+    # --------------------------------------------------
     context = {
         "incident": {
             "title": incident[0],
             "severity": incident[1],
             "started_at": incident[2].isoformat(),
         },
-        "hypotheses": [
-            {"description": h[0], "confidence": h[1]} for h in hypotheses
+        "affected_services": [
+            {"id": s[0], "name": s[1]} for s in services
         ],
+        "hypotheses": hypotheses,
         "evidence": [
-            {"type": e[0], "reference": e[1]} for e in evidence
+            {"type": e[0], "reference": e[1]} for e in evidence_rows
         ],
+        "candidates": candidates,
+        "top_candidate": top_candidate,
+        "context_flags": {
+            "weak_signal": weak_signal,
+            "close_competition": close_competition,
+        }
     }
 
+    # --------------------------------------------------
+    # Generate explanation
+    # --------------------------------------------------
     explanation = generate_explanation(context)
 
     return {
         "incident_id": incident_id,
         "explanation": explanation,
-        "confidence": hypotheses[0][1] if hypotheses else None,
+        "confidence": hypotheses[0]["confidence"] if hypotheses else None,
+        "rca_summary": rca_summary,
+        "debug_trace": debug_trace,
     }

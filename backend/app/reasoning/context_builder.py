@@ -1,61 +1,89 @@
 import psycopg2
 
+
 def build_incident_context(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
 
-    # 1️⃣ Incident details
+    # -----------------------------
+    # Incident details
+    # -----------------------------
     cur.execute(
         """
-        SELECT title, severity, started_at
+        SELECT id, title, severity, started_at
         FROM incidents
         WHERE id = %s
         """,
         (incident_id,),
     )
-    incident = cur.fetchone()
-    if incident is None:
+
+    incident_row = cur.fetchone()
+    if not incident_row:
+        cur.close()
+        conn.close()
         raise ValueError("Incident not found")
 
-    title, severity, started_at = incident
+    incident = {
+        "id": incident_row[0],
+        "title": incident_row[1],
+        "severity": incident_row[2],
+        "started_at": str(incident_row[3]),
+    }
 
-    # 2️⃣ Affected services
+    # -----------------------------
+    # Affected services
+    # -----------------------------
     cur.execute(
         """
         SELECT s.id, s.name
-        FROM services s
-        JOIN incident_entities ie
-          ON s.id = ie.entity_id
+        FROM incident_entities ie
+        JOIN services s ON ie.entity_id = s.id
         WHERE ie.incident_id = %s
           AND ie.entity_type = 'service'
         """,
         (incident_id,),
     )
-    affected_services = [
-        {"id": row[0], "name": row[1]}
-        for row in cur.fetchall()
-    ]
 
-    # 3️⃣ Root cause hypotheses
+    services = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
+
+    # -----------------------------
+    # Hybrid candidate data (NEW 🔥)
+    # -----------------------------
     cur.execute(
         """
-        SELECT change_id, description, confidence
-        FROM root_cause_hypotheses
-        WHERE incident_id = %s
-        ORDER BY confidence DESC
+        SELECT
+            f.change_id,
+            f.temporal_proximity,
+            f.service_overlap,
+            f.graph_distance,
+            f.criticality_score,
+            COALESCE(h.confidence, 0) AS rule_confidence
+        FROM incident_change_features f
+        LEFT JOIN root_cause_hypotheses h
+          ON f.incident_id = h.incident_id
+         AND f.change_id = h.change_id
+        WHERE f.incident_id = %s
         """,
         (incident_id,),
     )
-    hypotheses = [
-        {
-            "change_id": row[0],
-            "description": row[1],
-            "confidence": float(row[2]),
-        }
-        for row in cur.fetchall()
-    ]
 
-    # 4️⃣ Linked evidence
+    candidates = []
+
+    for row in cur.fetchall():
+        candidates.append(
+            {
+                "change_id": row[0],
+                "temporal_proximity": float(row[1]),
+                "service_overlap": float(row[2]),
+                "graph_distance": int(row[3]),
+                "criticality_score": float(row[4]),
+                "rule_confidence": float(row[5]),
+            }
+        )
+
+    # -----------------------------
+    # Evidence
+    # -----------------------------
     cur.execute(
         """
         SELECT source_type, reference
@@ -64,22 +92,15 @@ def build_incident_context(db_url: str, incident_id: str):
         """,
         (incident_id,),
     )
-    evidence = [
-        {"source_type": row[0], "reference": row[1]}
-        for row in cur.fetchall()
-    ]
+
+    evidence = [{"type": r[0], "reference": r[1]} for r in cur.fetchall()]
 
     cur.close()
     conn.close()
 
     return {
-        "incident": {
-            "id": incident_id,
-            "title": title,
-            "severity": severity,
-            "started_at": str(started_at),
-        },
-        "affected_services": affected_services,
-        "hypotheses": hypotheses,
+        "incident": incident,
+        "affected_services": services,
+        "candidates": candidates,  # ⭐ upgraded
         "evidence": evidence,
     }

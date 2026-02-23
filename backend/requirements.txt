@@ -5,3 +5,4 @@ pyyaml
 groq
 scikit-learn
 joblib
+python-multipart

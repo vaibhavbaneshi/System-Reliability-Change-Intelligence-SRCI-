@@ -3,6 +3,7 @@ import yaml
 import psycopg2
 
 REPO_PATH = "app/sample_repo"
+DEFAULT_DEPENDENCY_TYPE = "runtime"
 
 def ingest_dependencies(db_url: str):
     conn = psycopg2.connect(db_url)
@@ -32,10 +33,12 @@ def ingest_dependencies(db_url: str):
 
             cur.execute(
                 """
-                INSERT INTO dependencies (source_type, source_id, target_type, target_id)
-                VALUES ('service', %s, 'service', %s)
+                INSERT INTO dependencies (
+                    source_type, source_id, target_type, target_id, dependency_type
+                )
+                VALUES ('service', %s, 'service', %s, %s)
                 """,
-                (source_id, target_id)
+                (source_id, target_id, DEFAULT_DEPENDENCY_TYPE),
             )
 
     conn.commit()

@@ -1,5 +1,13 @@
 import psycopg2
 
+DEFAULT_DEPENDENCY_TYPE = "runtime"
+
+
+def format_change_evidence_reference(git_ref: str, created_at) -> str:
+    """Canonical evidence reference for a change deployment."""
+    return f"Deployment {git_ref} at {created_at}"
+
+
 def link_change_evidence(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
@@ -46,7 +54,7 @@ def link_change_evidence(db_url: str, incident_id: str):
                 """,
                 (
                     incident_id,
-                    f"Deployment {git_ref} at {created_at}"
+                    format_change_evidence_reference(git_ref, created_at),
                 ),
             )
 

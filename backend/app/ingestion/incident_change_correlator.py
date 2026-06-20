@@ -1,6 +1,7 @@
 import psycopg2
 from datetime import timedelta
 from app.reasoning.graph_traversal import get_downstream_services
+from app.ingestion.evidence_linker import format_change_evidence_reference
 
 def correlate_incident_to_changes(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
@@ -31,13 +32,14 @@ def correlate_incident_to_changes(db_url: str, incident_id: str):
     affected_services = get_downstream_services(conn, direct_services)
 
     # 3️⃣ Candidate changes (within 24h before incident)
+    window_start = incident_started_at - timedelta(hours=24)
     cur.execute(
         """
         SELECT id
         FROM changes
-        WHERE created_at >= %s
+        WHERE created_at BETWEEN %s AND %s
         """,
-        (incident_started_at - timedelta(hours=24),),
+        (window_start, incident_started_at),
     )
     candidate_changes = [r[0] for r in cur.fetchall()]
 
@@ -78,18 +80,31 @@ def correlate_incident_to_changes(db_url: str, incident_id: str):
 
         # Only create hypothesis if there is overlap
         if score > 0:
+            cur.execute(
+                """
+                SELECT git_ref, created_at
+                FROM changes
+                WHERE id = %s
+                """,
+                (change_id,),
+            )
+            change_row = cur.fetchone()
 
-            # 🔹 Evidence-aware boost (per change)
-            # Evidence-aware boost (change-specific)
-            cur.execute("""
-                SELECT COUNT(*)
-                FROM evidence
-                WHERE incident_id = %s
-                AND source_type = 'change'
-                AND reference = %s
-            """, (incident_id, f"Change {change_id}"))
-
-            evidence_count = cur.fetchone()[0]
+            evidence_count = 0
+            if change_row:
+                git_ref, created_at = change_row
+                reference = format_change_evidence_reference(git_ref, created_at)
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM evidence
+                    WHERE incident_id = %s
+                      AND source_type = 'change'
+                      AND reference = %s
+                    """,
+                    (incident_id, reference),
+                )
+                evidence_count = cur.fetchone()[0]
 
             score += min(0.2, evidence_count * 0.1)
             score = min(score, 1.0)

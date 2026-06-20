@@ -1,5 +1,8 @@
 # SRCI_ROADMAP.md
 
+> **Superseded for day-to-day development.** Use the living roadmap: **[`docs/ROADMAP.md`](../ROADMAP.md)**  
+> This file is a static audit snapshot from 2026-06-20.
+
 **Generated:** 2026-06-20  
 **Based on:** Complete project audit findings
 

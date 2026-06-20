@@ -165,6 +165,10 @@ echo "20) Explanation ($INCIDENT_ID)"
 curl -s "$BASE_URL/incidents/$INCIDENT_ID/explanation" | pretty
 
 echo ""
+echo "21) Orchestrated RCA — single call ($INCIDENT_ID)"
+curl -s -X POST "$BASE_URL/incidents/$INCIDENT_ID/run-rca" | pretty
+
+echo ""
 echo "=============================================="
 echo "Setup complete."
 echo ""

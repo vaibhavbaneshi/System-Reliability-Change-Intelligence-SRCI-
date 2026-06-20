@@ -1,73 +1,51 @@
+import json
 import os
+
 from groq import Groq
 
-EXPLANATION_PROMPT = """
-You are an expert SRE incident analyst.
+from app.genai.prompts import EXPLANATION_PROMPT
 
-You are given structured incident intelligence.
-
-STRICT RULES:
-- Do NOT invent causes
-- Do NOT fabricate evidence
-- Do NOT modify confidence values
-- Only reason from provided data
-- Be technically precise and concise
-
-Additional behavior rules:
-
-- If weak_signal is true → express uncertainty clearly
-- If close_competition is true → mention multiple plausible causes
-- If hybrid_score < 0.6 → avoid definitive language
-- Never claim certainty unless hybrid_score > 0.8
-
-Your task:
-1. Identify the most likely root cause
-2. Use rule confidence, ML probability, and hybrid score
-3. Explicitly communicate uncertainty
-4. Reference the actual change description when available
-5. If confidence is not high, clearly say investigation should continue
-
-Output style:
-- Short executive summary
-- Bullet-based technical reasoning
-- Clear confidence statement
-"""
-
-api_key = os.getenv("GROQ_API_KEY")
-if not api_key:
-    raise RuntimeError("GROQ_API_KEY is not set")
-
-client = Groq(api_key=api_key)
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
-def generate_explanation(context):
+def _llm_enabled() -> bool:
+    return os.getenv("SRCI_USE_LLM_EXPLANATIONS", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _get_client():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
+    return Groq(api_key=api_key)
+
+
+def _no_candidates_message() -> str:
+    return (
+        "No strong root-cause candidates were identified for this incident. "
+        "Additional telemetry or change data may be required."
+    )
+
+
+def _generate_template_explanation(context: dict) -> str:
     candidates = context.get("candidates", [])
-    incident = context.get("incident", {})
     services = context.get("affected_services", [])
 
     if not candidates:
-        return (
-            "No strong root-cause candidates were identified for this incident. "
-            "Additional telemetry or change data may be required."
-        )
+        return _no_candidates_message()
 
-    # -------------------------------------------------
-    # Top candidate
-    # -------------------------------------------------
     top = candidates[0]
     top_desc = top.get("change_description") or "Unknown change"
     top_score = top.get("hybrid_score", 0.0)
     top_band = top.get("confidence_band", "unknown")
-    top_time = top.get("change_created_at")
 
-    # -------------------------------------------------
-    # Runner-up analysis (important!)
-    # -------------------------------------------------
     runner_up_note = ""
     if len(candidates) > 1:
         second = candidates[1]
         gap = top_score - second.get("hybrid_score", 0)
-
         if gap < 0.15:
             second_desc = second.get("change_description") or "another change"
             runner_up_note = (
@@ -76,46 +54,84 @@ def generate_explanation(context):
                 "Confidence should be treated as moderate."
             )
 
-    # -------------------------------------------------
-    # Confidence interpretation
-    # -------------------------------------------------
     band_guidance = {
         "high": "strong statistical and rule-based alignment",
         "medium": "reasonable but not definitive evidence",
         "low": "weak correlation — manual validation recommended",
     }
-
     band_text = band_guidance.get(top_band, "uncertain confidence")
 
-    # -------------------------------------------------
-    # Affected services text
-    # -------------------------------------------------
     service_names = [s["name"] for s in services]
     service_text = ", ".join(service_names) if service_names else "the impacted service"
 
-    # -------------------------------------------------
-    # Final narrative
-    # -------------------------------------------------
-    explanation = f"""
-    **Executive Summary**
+    flags = context.get("context_flags", {})
+    uncertainty_note = ""
+    if flags.get("weak_signal"):
+        uncertainty_note = (
+            "\n\n⚠️ **Weak signal:** Confidence is below the strong-evidence threshold. "
+            "Treat this as a hypothesis, not a confirmed root cause."
+        )
 
-    The incident affecting {service_text} most likely correlates with **{top_desc}**.
+    return f"""
+**Executive Summary**
 
-    - Hybrid score: **{top_score:.3f}**
-    - Confidence band: **{top_band}**
-    - Interpretation: {band_text}
+The incident affecting {service_text} most likely correlates with **{top_desc}**.
 
-    **Technical Reasoning**
+- Hybrid score: **{top_score:.3f}**
+- Confidence band: **{top_band}**
+- Interpretation: {band_text}
 
-    - Temporal proximity and service impact signals align with the incident window.
-    - Rule-based correlation and ML scoring both elevate this change above other candidates.
-    - No stronger competing change was identified.
+**Technical Reasoning**
 
-    {runner_up_note}
+- Temporal proximity and service impact signals align with the incident window.
+- Rule-based correlation and ML scoring both elevate this change above other candidates.
+- No stronger competing change was identified.
 
-    **Recommended Action**
+{runner_up_note}{uncertainty_note}
 
-    Validate this deployment/change via logs, metrics, and recent configuration diffs before final incident closure.
-    """.strip()
+**Recommended Action**
 
-    return explanation
+Validate this deployment/change via logs, metrics, and recent configuration diffs before final incident closure.
+""".strip()
+
+
+def _generate_llm_explanation(context: dict, client: Groq) -> str:
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": EXPLANATION_PROMPT},
+            {
+                "role": "user",
+                "content": json.dumps(context, indent=2, default=str),
+            },
+        ],
+        temperature=0.2,
+        max_tokens=1024,
+    )
+    content = response.choices[0].message.content
+    if not content or not content.strip():
+        raise ValueError("Empty LLM response")
+    return content.strip()
+
+
+def generate_explanation(context: dict) -> dict:
+    """
+    Returns {"explanation": str, "source": "llm" | "template"}.
+    Falls back to template if LLM is disabled, unavailable, or errors.
+    """
+    if not context.get("candidates"):
+        return {"explanation": _no_candidates_message(), "source": "template"}
+
+    if _llm_enabled():
+        client = _get_client()
+        if client is not None:
+            try:
+                text = _generate_llm_explanation(context, client)
+                return {"explanation": text, "source": "llm"}
+            except Exception:
+                pass
+
+    return {
+        "explanation": _generate_template_explanation(context),
+        "source": "template",
+    }

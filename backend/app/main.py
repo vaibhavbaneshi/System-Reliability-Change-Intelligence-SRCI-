@@ -18,6 +18,8 @@ from app.api.reasoning import router as reasoning_router
 from app.api.features import router as features_router
 from app.api.train import router as train_router
 from app.api.predict import router as predict_router
+from app.api.rca import router as rca_router
+from app.api.labels import router as labels_router
 
 app = FastAPI(title="SRCI")
 
@@ -38,6 +40,8 @@ app.include_router(reasoning_router)
 app.include_router(features_router)
 app.include_router(train_router)
 app.include_router(predict_router)
+app.include_router(rca_router)
+app.include_router(labels_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

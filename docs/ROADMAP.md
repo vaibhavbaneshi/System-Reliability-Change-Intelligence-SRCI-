@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20  
+**Last updated:** 2026-06-20 (Phase 14 sprint 3)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -24,15 +24,15 @@ Related docs (audit snapshots, not living):
 | Phase | Name | Status | Done | Total | % |
 |-------|------|--------|------|-------|---|
 | 0–13 | Foundation & MVP pipeline | Mostly complete | 28 | 30 | 93% |
-| 14 | Advanced RCA Intelligence | **In progress** | 12 | 22 | 55% |
+| 14 | Advanced RCA Intelligence | **In progress** | 27 | 32 | 84% |
 | 15 | Production Autonomy | Not started | 0 | 12 | 0% |
 | 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
 | 16 | SRE Copilot Experience | Not started | 0 | 10 | 0% |
 | 17 | Enterprise Readiness | Not started | 0 | 10 | 0% |
-| — | Dev hygiene (parallel) | In progress | 2 | 10 | 20% |
+| — | Dev hygiene (parallel) | In progress | 3 | 10 | 30% |
 
-**Current focus:** Phase 14 — RCA runner + autonomy columns  
-**Next task:** 14.7 — Autonomy DB migration (`auto_rca_*` columns)
+**Current focus:** Phase 14 — finish intelligence (quality scoring, evaluation)  
+**Next task:** 14.3.8 — RCA quality scoring module
 
 ---
 
@@ -124,7 +124,7 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 14 — Advanced RCA Intelligence
 
 **Goal:** Complete the intelligence layer and add autonomy foundations.  
-**Status:** In progress (~55%)  
+**Status:** In progress (~75%)  
 **Exit criteria:** Single-call RCA, calibration wired, quality scoring, safety controls, autonomy columns.
 
 ### 14.1 — Correctness & stabilization
@@ -134,17 +134,17 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 14.1.1 | Fix `dependency_type` on dependency ingest | 2026-06-20 — default `runtime` |
 | [x] | 14.1.2 | Fix evidence reference format mismatch | 2026-06-20 — shared `format_change_evidence_reference()` |
 | [x] | 14.1.3 | Fix correlator 24h time window upper bound | 2026-06-20 — `BETWEEN` filter |
-| [ ] | 14.1.4 | Reconcile conflicting feature table migrations | Remove dead `incident_change_features.sql` |
-| [ ] | 14.1.5 | Fix docker-compose `PROPAGATING_DEPENDENCIES` typo | `runtine` → `runtime`, move to backend |
+| [x] | 14.1.4 | Reconcile conflicting feature table migrations | 2026-06-20 — removed dead migration |
+| [x] | 14.1.5 | Fix docker-compose `PROPAGATING_DEPENDENCIES` typo | 2026-06-20 — moved to backend service |
 
 ### 14.2 — Schema hardening
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 14.2.1 | Add indexes on hot query paths | `changes.created_at`, `change_impacts`, etc. |
-| [ ] | 14.2.2 | FK on `incident_change_features` | `incident_id`, `change_id` |
-| [ ] | 14.2.3 | FK on `root_cause_hypotheses.change_id` | |
-| [ ] | 14.2.4 | Unique constraints on mappings | features, hypotheses, impacts |
+| [x] | 14.2.1 | Add indexes on hot query paths | `add_schema_hardening.sql` |
+| [x] | 14.2.2 | FK on `incident_change_features` | |
+| [x] | 14.2.3 | FK on `root_cause_hypotheses.change_id` | |
+| [x] | 14.2.4 | Unique constraints on mappings | features, hypotheses, impacts |
 
 ### 14.3 — Intelligence completion
 
@@ -154,9 +154,9 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 14.3.2 | Evidence generation | |
 | [x] | 14.3.3 | Feature generation | |
 | [x] | 14.3.4 | Hybrid prediction + decision traces | |
-| [ ] | 14.3.5 | Wire `compute_hybrid_score()` calibration | Exists in `hybrid_scorer.py`, bypassed |
-| [ ] | 14.3.6 | Activate Groq LLM in explainer | Client init'd, never called |
-| [ ] | 14.3.7 | Label assignment pipeline | All labels default to 0 |
+| [x] | 14.3.5 | Wire `compute_hybrid_score()` calibration | 2026-06-20 — predictor uses calibrated fusion |
+| [x] | 14.3.6 | Activate Groq LLM in explainer | 2026-06-20 — Groq with template fallback |
+| [x] | 14.3.7 | Label assignment pipeline | 2026-06-20 — `POST /incidents/{id}/labels` |
 | [ ] | 14.3.8 | RCA quality scoring module | Not built |
 | [ ] | 14.3.9 | Failure analysis module | Not built |
 | [ ] | 14.3.10 | Evaluation metrics endpoint | Not built |
@@ -165,19 +165,19 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 14.4.1 | **`POST /incidents/{id}/run-rca`** — single-call pipeline | **← NEXT** |
-| [ ] | 14.4.2 | `autonomy/rca_runner.py` — orchestrate all steps | |
-| [ ] | 14.4.3 | Return unified RCA response (predict + explain + trace) | |
+| [x] | 14.4.1 | **`POST /incidents/{id}/run-rca`** — single-call pipeline | 2026-06-20 |
+| [x] | 14.4.2 | `autonomy/rca_runner.py` — orchestrate all steps | |
+| [x] | 14.4.3 | Return unified RCA response (predict + explain + trace) | |
 
 ### 14.5 — Autonomy database columns
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 14.5.1 | Migration: `auto_rca_processed` | on `incidents` |
-| [ ] | 14.5.2 | Migration: `auto_rca_processed_at` | |
-| [ ] | 14.5.3 | Migration: `auto_rca_attempts` | |
-| [ ] | 14.5.4 | Migration: `auto_rca_last_error` | |
-| [ ] | 14.5.5 | Migration: `auto_rca_in_progress` | concurrency guard |
+| [x] | 14.5.1 | Migration: `auto_rca_processed` | `add_autonomy_columns.sql` |
+| [x] | 14.5.2 | Migration: `auto_rca_processed_at` | |
+| [x] | 14.5.3 | Migration: `auto_rca_attempts` | |
+| [x] | 14.5.4 | Migration: `auto_rca_last_error` | |
+| [x] | 14.5.5 | Migration: `auto_rca_in_progress` | concurrency guard |
 
 ### 14.6 — Safety controls
 
@@ -186,16 +186,16 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 14.6.1 | Score clamping guardrails | `rca_guardrails.py` |
 | [x] | 14.6.2 | Weak signal detection | |
 | [x] | 14.6.3 | Close competition detection | |
-| [ ] | 14.6.4 | Retry with backoff | Not built |
-| [ ] | 14.6.5 | Circuit breaker | Not built |
+| [x] | 14.6.4 | Retry with backoff | `autonomy/safety.py` |
+| [x] | 14.6.5 | Circuit breaker | in-process breaker on runner |
 | [ ] | 14.6.6 | Batch processing controls | Not built |
-| [ ] | 14.6.7 | Escalation engine (weak RCA → flag) | Not built |
+| [x] | 14.6.7 | Escalation engine (weak RCA → flag) | 2026-06-20 — `reasoning/escalation.py` |
 
 ### 14.7 — Code consolidation
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 14.7.1 | Consolidate duplicated context queries | 4 copies today |
+| [x] | 14.7.1 | Consolidate explanation builder | `reasoning/explanation_builder.py` |
 | [ ] | 14.7.2 | Unify graph traversal semantics | propagator vs `graph_traversal.py` |
 | [ ] | 14.7.3 | Centralize scoring weights | config or DB table |
 | [ ] | 14.7.4 | Batch SQL (replace N+1 loops) | feature_builder, correlator |
@@ -299,7 +299,7 @@ Work that spans all phases — pick these up alongside the current phase.
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | H.1 | Integration test: full RCA pipeline | `tests/test_rca_pipeline.py` |
+| [x] | H.1 | Integration test: full RCA pipeline | `backend/tests/test_rca_pipeline.py` |
 | [ ] | H.2 | Unit tests for scoring/guardrails | |
 | [ ] | H.3 | Structured logging | Request + query timing |
 | [ ] | H.4 | Connection pooling | pgBouncer or psycopg2 pool |
@@ -317,8 +317,8 @@ Work that spans all phases — pick these up alongside the current phase.
 | Sprint | Focus | Key deliverables |
 |--------|-------|------------------|
 | **1** ✅ | Stabilize | 3 bug fixes, demo scripts |
-| **2** | RCA runner | 14.4 + 14.5 + 14.3.5 |
-| **3** | Safety + schema | 14.6.4–7, 14.2, H.1 |
+| **2** ✅ | RCA runner | 14.4 + 14.5 + 14.3.5 + schema hardening |
+| **3** | Intelligence finish | 14.3.6–10, 14.6.7, 14.7 |
 | **4** | Intelligence | 14.3.6–10, 14.7 |
 | **5** | Autonomy | Phase 15.1–15.5 |
 | **6** | Observability | Phase 15.6–15.12 |
@@ -330,6 +330,8 @@ Work that spans all phases — pick these up alongside the current phase.
 | Date | Change |
 |------|--------|
 | 2026-06-20 | Roadmap created. Phase 14.1.1–14.1.3 marked done. Demo scripts added. |
+| 2026-06-20 | Phase 14 sprint: run-rca endpoint, rca_runner, autonomy columns, schema hardening, calibrated hybrid scorer, retry/CB, explanation builder. |
+| 2026-06-20 | Sprint 3: Groq LLM explainer (template fallback), label assignment API, escalation engine. |
 | | *Add new rows here as phases expand.* |
 
 ---

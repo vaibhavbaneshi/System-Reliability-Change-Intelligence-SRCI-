@@ -2,6 +2,7 @@ import psycopg2
 import numpy as np
 import joblib
 
+from app.ingestion.evidence_linker import format_change_evidence_reference
 from app.reasoning.hybrid_scorer import compute_hybrid_score
 from app.reasoning.confidence_band import compute_confidence_band
 from app.reasoning.rca_guardrails import validate_predictions
@@ -47,6 +48,9 @@ def predict_for_incident(db_url: str, incident_id: str):
             "predictions": [],
             "note": "No features found for this incident",
         }
+
+    cur.execute("SELECT COUNT(*) FROM incident_change_features")
+    ml_sample_count = cur.fetchone()[0]
 
     predictions = []
 
@@ -95,40 +99,57 @@ def predict_for_incident(db_url: str, incident_id: str):
         rc_row = cur.fetchone()
         rule_confidence = float(rc_row[0]) if rc_row else 0.0
 
-        # =============================
-        # Hybrid scoring (expanded)
-        # =============================
-        RULE_WEIGHT = 0.6
-        ML_WEIGHT = 0.4
+        cur.execute(
+            """
+            SELECT git_ref, created_at
+            FROM changes
+            WHERE id = %s
+            """,
+            (change_id,),
+        )
+        change_meta = cur.fetchone()
+        evidence_count = 0
+        if change_meta:
+            git_ref, created_at = change_meta
+            reference = format_change_evidence_reference(git_ref, created_at)
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM evidence
+                WHERE incident_id = %s
+                  AND source_type = 'change'
+                  AND reference = %s
+                """,
+                (incident_id, reference),
+            )
+            evidence_count = cur.fetchone()[0]
 
-        rule_component = RULE_WEIGHT * rule_confidence
-        ml_component = ML_WEIGHT * ml_probability
+        hybrid_score = compute_hybrid_score(
+            rule_confidence,
+            ml_probability,
+            ml_sample_count=ml_sample_count,
+            evidence_count=evidence_count,
+        )
 
-        hybrid_score = rule_component + ml_component
-
-        # Graph penalty logic
         graph_penalty = 0.0
         if graph_distance > 1:
             graph_penalty = -0.1 * hybrid_score
-            hybrid_score = hybrid_score + graph_penalty
+            hybrid_score = max(0.0, hybrid_score + graph_penalty)
 
-        # Clamp safety
         hybrid_score = max(0.0, min(1.0, hybrid_score))
-
-        # Confidence band
         confidence_band = compute_confidence_band(hybrid_score)
 
-        # =============================
-        # Decision trace (FULL)
-        # =============================
         decision_trace = {
             "weights": {
-                "rule_weight": RULE_WEIGHT,
-                "ml_weight": ML_WEIGHT,
+                "rule_weight": 0.6,
+                "ml_weight": 0.4,
+                "calibrated": True,
             },
             "components": {
-                "rule_component": round(rule_component, 6),
-                "ml_component": round(ml_component, 6),
+                "rule_confidence": round(rule_confidence, 6),
+                "ml_probability": round(ml_probability, 6),
+                "evidence_count": evidence_count,
+                "ml_sample_count": ml_sample_count,
                 "graph_penalty": round(graph_penalty, 6),
             },
             "feature_snapshot": {

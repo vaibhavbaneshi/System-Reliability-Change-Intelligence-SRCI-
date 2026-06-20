@@ -10,11 +10,11 @@ done
 
 echo "Postgres is ready. Running SRCI database migrations..."
 
-# Run base schema
-psql "$DATABASE_URL" -f app/migrations/versions/initial_schema.sql
-psql "$DATABASE_URL" -f app/migrations/versions/add_feature_columns.sql
+MIGRATIONS_DIR="app/migrations/versions"
 
-# Run ML feature schema
-psql "$DATABASE_URL" -f app/migrations/versions/incident_change_features.sql
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/initial_schema.sql"
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_feature_columns.sql"
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_autonomy_columns.sql"
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_schema_hardening.sql"
 
 echo "All migrations completed successfully."

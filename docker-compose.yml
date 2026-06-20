@@ -8,7 +8,6 @@ services:
       POSTGRES_DB: srci
       POSTGRES_USER: srci
       POSTGRES_PASSWORD: srci
-      PROPAGATING_DEPENDENCIES: runtine,sync_api,http
     ports:
       - "5432:5432"
     volumes:
@@ -32,6 +31,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://srci:srci@db:5432/srci
+      PROPAGATING_DEPENDENCIES: runtime,sync_api,http,grpc
     depends_on:
       - db
 

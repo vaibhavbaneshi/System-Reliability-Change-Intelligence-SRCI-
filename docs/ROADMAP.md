@@ -26,13 +26,13 @@ Related docs (audit snapshots, not living):
 | 0–13 | Foundation & MVP pipeline | Mostly complete | 28 | 30 | 93% |
 | 14 | Advanced RCA Intelligence | **Complete** | 32 | 32 | 100% |
 | 15 | Production Autonomy | **Complete** | 12 | 12 | 100% |
-| 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
+| 15.4 | Advanced Graph Intelligence | **Complete** | 6 | 6 | 100% |
 | 16 | SRE Copilot Experience | **Complete** | 10 | 10 | 100% |
 | 17 | Enterprise Readiness | **Complete** | 10 | 10 | 100% |
 | — | Dev hygiene (parallel) | In progress | 4 | 10 | 40% |
 
-**Current focus:** Phase 15.4 — Advanced Graph Intelligence (optional) or Dev hygiene  
-**Next task:** 15.4.1 — Blast radius estimation API
+**Current focus:** Dev hygiene + production hardening  
+**Next task:** H.3 — Structured logging
 
 ---
 
@@ -232,19 +232,21 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 15.4 — Advanced Graph Intelligence
 
 **Goal:** Deep dependency-aware impact modeling.  
-**Status:** Not started  
+**Status:** Complete (2026-06-20)  
 **Depends on:** Phase 14.2 schema hardening
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 15.4.1 | Blast radius estimation API | Beyond BFS depth levels |
-| [ ] | 15.4.2 | Upstream/downstream scoring | Directional graph analysis |
-| [ ] | 15.4.3 | Failure spread modeling | Probabilistic propagation |
-| [ ] | 15.4.4 | Graph traversal as PostgreSQL function | Recursive CTE |
-| [ ] | 15.4.5 | Impact propagation with `dependency_type` weights | |
-| [ ] | 15.4.6 | Failure risk quantification panel data | API for dashboards |
+| [x] | 15.4.1 | Blast radius estimation API | `GET /changes/{id}/blast-radius` |
+| [x] | 15.4.2 | Upstream/downstream scoring | Directional SQL CTE + scoring |
+| [x] | 15.4.3 | Failure spread modeling | Probabilistic decay model |
+| [x] | 15.4.4 | Graph traversal as PostgreSQL function | `srci_graph_downstream/upstream` |
+| [x] | 15.4.5 | Impact propagation with `dependency_type` weights | Weighted propagate endpoint |
+| [x] | 15.4.6 | Failure risk quantification panel data | `GET /services/{id}/failure-risk` |
 
-**Phase 15.4 exit criteria:** Change submit returns estimated blast radius with upstream/downstream breakdown.
+**Phase 15.4 exit criteria:** Change submit returns estimated blast radius with upstream/downstream breakdown. ✅
+
+See [`docs/PHASE15_4_IMPLEMENTATION_REPORT.md`](PHASE15_4_IMPLEMENTATION_REPORT.md).
 
 ---
 

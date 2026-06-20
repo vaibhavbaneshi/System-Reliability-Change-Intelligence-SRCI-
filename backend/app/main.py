@@ -38,6 +38,7 @@ from app.api.chat import router as chat_router
 from app.api.auth_routes import router as auth_router
 from app.api.sla_routes import router as sla_router
 from app.api.enterprise_routes import router as enterprise_router
+from app.api.graph_routes import router as graph_router
 from app.db import get_bypass_connection
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -69,6 +70,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(auth_router)
 app.include_router(sla_router)
 app.include_router(enterprise_router)
+app.include_router(graph_router)
 app.include_router(ingest_router)
 app.include_router(services_router)
 app.include_router(dependencies_router)

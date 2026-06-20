@@ -105,6 +105,63 @@ export interface Change {
   created_at: string
 }
 
+export interface GraphNode {
+  service_id: string
+  service_name: string
+  criticality: string
+  depth: number
+  direction: 'upstream' | 'downstream' | 'origin'
+  dependency_type: string | null
+  edge_weight: number
+  propagation_probability: number
+  impact_level: string
+  risk_contribution: number
+}
+
+export interface BlastRadiusResponse {
+  change_id: string
+  origin_services: { id: string; name: string; criticality: string }[]
+  blast_radius: {
+    total_services: number
+    downstream_count: number
+    upstream_count: number
+    score: number
+    max_depth: number
+  }
+  downstream: GraphNode[]
+  upstream: GraphNode[]
+  failure_spread: {
+    model: string
+    expected_affected_count: number
+    high_risk_count: number
+    medium_risk_count: number
+    low_risk_count: number
+  }
+  risk_panel: {
+    overall_risk_score: number
+    risk_band: string
+    factors: string[]
+  }
+}
+
+export interface ChangeImpactResponse {
+  change_id: string
+  impacts: { service: string; impact_level: string; criticality?: string }[]
+  blast_radius_summary: BlastRadiusResponse['blast_radius'] | null
+  risk_panel: BlastRadiusResponse['risk_panel'] | null
+}
+
+export interface FailureRiskResponse {
+  service_id: string
+  service_name: string
+  criticality: string
+  downstream: GraphNode[]
+  upstream: GraphNode[]
+  failure_spread: BlastRadiusResponse['failure_spread']
+  risk_panel: BlastRadiusResponse['risk_panel']
+  blast_radius_pct: number
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string

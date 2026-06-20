@@ -52,6 +52,7 @@ jobs:
           pytest tests/test_phase14_modules.py tests/test_explainer.py \
             tests/test_auth.py tests/test_rbac.py tests/test_enterprise.py \
             tests/test_scoring_guardrails.py tests/test_drift_canary.py \
+            tests/test_graph_intelligence.py \
             tests/test_api_phase17.py \
             --cov=app/auth --cov=app/enterprise --cov=app/reasoning \
             --cov=app/genai --cov=app/tenant --cov=app/db.py \

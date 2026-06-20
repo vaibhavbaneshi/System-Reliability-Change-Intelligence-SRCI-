@@ -16,5 +16,6 @@ psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/initial_schema.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_feature_columns.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_autonomy_columns.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_schema_hardening.sql"
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_phase15_autonomy.sql"
 
 echo "All migrations completed successfully."

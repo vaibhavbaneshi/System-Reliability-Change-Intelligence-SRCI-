@@ -1,0 +1,53 @@
+{
+  "title": "SRCI Autonomy",
+  "uid": "srci-autonomy",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Unprocessed Incidents",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "srci_unprocessed_incidents", "legendFormat": "unprocessed"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active RCA Workers",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {"expr": "srci_rca_active_workers", "legendFormat": "workers"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RCA Runs by Status",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {"expr": "rate(srci_rca_runs_total[5m])", "legendFormat": "{{status}}"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RCA Duration (p95)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(srci_rca_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Escalations",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [
+        {"expr": "rate(srci_rca_escalations_total[5m])", "legendFormat": "escalations/s"}
+      ]
+    }
+  ]
+}

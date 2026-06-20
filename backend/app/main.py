@@ -1,6 +1,11 @@
 import os
+from contextlib import asynccontextmanager
+
 import psycopg2
 from fastapi import FastAPI
+
+from app.autonomy.config import AUTONOMY_ENABLED
+from app.autonomy.monitor import get_monitor
 from app.api.ingest import router as ingest_router
 from app.api.services import router as services_router
 from app.api.dependencies import router as dependencies_router
@@ -23,8 +28,24 @@ from app.api.labels import router as labels_router
 from app.api.evaluate import router as evaluate_router
 from app.api.batch import router as batch_router
 from app.api.rca_failure import router as rca_failure_router
+from app.api.autonomy import router as autonomy_router
+from app.api.feedback import router as feedback_router
+from app.api.metrics import router as metrics_router
 
-app = FastAPI(title="SRCI")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    monitor = get_monitor(DATABASE_URL or "")
+    if AUTONOMY_ENABLED:
+        monitor.start()
+    yield
+    if monitor.running:
+        await monitor.stop()
+
+
+app = FastAPI(title="SRCI", lifespan=lifespan)
 
 app.include_router(ingest_router)
 app.include_router(services_router)
@@ -48,8 +69,10 @@ app.include_router(labels_router)
 app.include_router(evaluate_router)
 app.include_router(batch_router)
 app.include_router(rca_failure_router)
+app.include_router(autonomy_router)
+app.include_router(feedback_router)
+app.include_router(metrics_router)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 def check_db():
     conn = psycopg2.connect(DATABASE_URL)

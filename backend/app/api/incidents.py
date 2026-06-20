@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 from app.ingestion.incident_ingestor import ingest_incident
+from app.autonomy.event_handler import trigger_rca_on_ingest
 
 router = APIRouter()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -23,4 +24,5 @@ def ingest_incident_api(req: IncidentRequest):
         req.started_at,
         req.affected_services,
     )
-    return {"incident_id": incident_id}
+    auto_rca = trigger_rca_on_ingest(DATABASE_URL, incident_id)
+    return {"incident_id": incident_id, "auto_rca": auto_rca}

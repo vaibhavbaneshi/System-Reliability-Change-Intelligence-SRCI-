@@ -6,6 +6,7 @@ from app.autonomy.rca_runner import (
     RcaRunnerError,
     run_rca_for_incident,
 )
+from app.autonomy.worker_pool import get_worker_pool
 
 
 def run_rca_batch(db_url: str, limit: int = 10, dry_run: bool = False) -> dict:
@@ -34,13 +35,16 @@ def run_rca_batch(db_url: str, limit: int = 10, dry_run: bool = False) -> dict:
             "incident_ids": incident_ids,
         }
 
+    pool = get_worker_pool(db_url)
+    futures = {iid: pool.submit(iid) for iid in incident_ids}
+
     succeeded = []
     failed = []
     skipped = []
 
-    for incident_id in incident_ids:
+    for incident_id, future in futures.items():
         try:
-            result = run_rca_for_incident(db_url, incident_id)
+            result = future.result()
             succeeded.append(
                 {
                     "incident_id": incident_id,

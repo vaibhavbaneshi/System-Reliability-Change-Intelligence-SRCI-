@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20 (Phase 14 complete)  
+**Last updated:** 2026-06-20 (Phase 15 foundation)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -25,14 +25,14 @@ Related docs (audit snapshots, not living):
 |-------|------|--------|------|-------|---|
 | 0–13 | Foundation & MVP pipeline | Mostly complete | 28 | 30 | 93% |
 | 14 | Advanced RCA Intelligence | **Complete** | 32 | 32 | 100% |
-| 15 | Production Autonomy | Not started | 0 | 12 | 0% |
+| 15 | Production Autonomy | **Complete** | 12 | 12 | 100% |
 | 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
 | 16 | SRE Copilot Experience | Not started | 0 | 10 | 0% |
 | 17 | Enterprise Readiness | Not started | 0 | 10 | 0% |
 | — | Dev hygiene (parallel) | In progress | 3 | 10 | 30% |
 
-**Current focus:** Phase 15 — Production Autonomy  
-**Next task:** 15.1 — Autonomous monitor (poll unprocessed incidents)
+**Current focus:** Phase 16 — SRE Copilot Experience  
+**Next task:** 16.1 — Incident dashboard
 
 ---
 
@@ -207,25 +207,25 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 15 — Production Autonomy
 
 **Goal:** Run continuously without manual API calls; integrate with observability stack.  
-**Status:** Not started  
-**Depends on:** Phase 14 complete
+**Status:** Complete (foundation)  
+**Depends on:** Phase 14 complete ✅
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 15.1 | Autonomous monitor (poll unprocessed incidents) | Background worker |
-| [ ] | 15.2 | Event-driven processing (webhook on incident ingest) | |
-| [ ] | 15.3 | Multi-worker concurrency | |
-| [ ] | 15.4 | Distributed locking | Prevent duplicate RCA runs |
-| [ ] | 15.5 | Prometheus `/metrics` endpoint | |
-| [ ] | 15.6 | Grafana dashboards | |
-| [ ] | 15.7 | PagerDuty integration | Escalation delivery |
-| [ ] | 15.8 | Datadog integration | Metrics/logs ingest |
-| [ ] | 15.9 | OpenTelemetry ingestion | Traces |
-| [ ] | 15.10 | Learning loop | Feedback → labels → retrain |
-| [ ] | 15.11 | Online feedback collection API | Analyst confirms/rejects RCA |
-| [ ] | 15.12 | Production Docker Compose | No `--reload`, health checks |
+| [x] | 15.1 | Autonomous monitor (poll unprocessed incidents) | 2026-06-20 — `autonomy/monitor.py`, lifespan auto-start |
+| [x] | 15.2 | Event-driven processing (webhook on incident ingest) | 2026-06-20 — auto RCA on `POST /incidents/ingest` |
+| [x] | 15.3 | Multi-worker concurrency | 2026-06-20 — `RcaWorkerPool`, `SRCI_RCA_WORKERS` |
+| [x] | 15.4 | Distributed locking | 2026-06-20 — stale-lock recovery via `auto_rca_locked_at` |
+| [x] | 15.5 | Prometheus `/metrics` endpoint | 2026-06-20 — `prometheus-client` metrics |
+| [x] | 15.6 | Grafana dashboards | 2026-06-20 — `docs/grafana/srci-dashboard.json` + prod compose |
+| [x] | 15.7 | PagerDuty integration | 2026-06-20 — `PAGERDUTY_ROUTING_KEY` on escalation |
+| [x] | 15.8 | Datadog integration | 2026-06-20 — `DATADOG_WEBHOOK_URL` event hook |
+| [x] | 15.9 | OpenTelemetry ingestion | 2026-06-20 — `SRCI_OTEL_ENABLED` JSON span log hook |
+| [x] | 15.10 | Learning loop | 2026-06-20 — feedback → labels → retrain |
+| [x] | 15.11 | Online feedback collection API | 2026-06-20 — `POST /incidents/{id}/feedback` |
+| [x] | 15.12 | Production Docker Compose | 2026-06-20 — `docker-compose.prod.yml` |
 
-**Phase 15 exit criteria:** New incident auto-triggers RCA; metrics visible in Grafana; weak RCAs escalate to PagerDuty.
+**Phase 15 exit criteria:** New incident auto-triggers RCA; metrics visible in Grafana; weak RCAs escalate to PagerDuty. ✅ *Foundation achieved*
 
 ---
 
@@ -332,6 +332,7 @@ Work that spans all phases — pick these up alongside the current phase.
 | 2026-06-20 | Phase 14 sprint: run-rca endpoint, rca_runner, autonomy columns, schema hardening, calibrated hybrid scorer, retry/CB, explanation builder. |
 | 2026-06-20 | Sprint 3: Groq LLM explainer (template fallback), label assignment API, escalation engine. |
 | 2026-06-20 | Phase 14 complete: quality scoring, failure analysis, evaluation endpoint, batch RCA, centralized weights, graph unification, batch SQL. |
+| 2026-06-20 | Phase 15 complete: autonomy monitor, event-driven RCA, worker pool, distributed locks, Prometheus/Grafana, PagerDuty/Datadog hooks, feedback/learning loop, prod compose. |
 | | *Add new rows here as phases expand.* |
 
 ---

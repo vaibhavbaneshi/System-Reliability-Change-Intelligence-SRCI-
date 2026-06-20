@@ -6,3 +6,4 @@ groq
 scikit-learn
 joblib
 python-multipart
+prometheus-client

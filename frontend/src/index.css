@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Premium Dark Enterprise Aesthetic */
+    --background: 217 32% 3%;
+    --foreground: 220 13% 91%;
+    
+    --card: 217 32% 17%;
+    --card-foreground: 220 13% 91%;
+    
+    --primary: 217 91% 60%;
+    --primary-foreground: 217 91% 60%;
+    
+    --secondary: 217 33% 45%;
+    --secondary-foreground: 220 13% 91%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --muted: 217 12% 63%;
+    --muted-foreground: 217 12% 63%;
+    
+    --accent: 16 92% 82%;
+    --accent-foreground: 217 32% 17%;
+    
+    --input: 217 32% 17%;
+    --ring: 217 91% 60%;
+    --border: 217 32% 35%;
+    
+    --radius: 0.5rem;
+
+    /* Semantic Severity Colors */
+    --severity-critical: 0 84% 60%;
+    --severity-warning: 38 92% 50%;
+    --severity-info: 47 97% 60%;
+    --severity-success: 142 76% 36%;
+    
+    /* Confidence Gradient */
+    --confidence-low: 38 92% 50%;
+    --confidence-medium: 47 97% 60%;
+    --confidence-high: 142 76% 36%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+@layer components {
+  .gradient-confidence {
+    background: linear-gradient(90deg, hsl(var(--confidence-low)), hsl(var(--confidence-medium)), hsl(var(--confidence-high)));
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Smooth animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.4s ease-out;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

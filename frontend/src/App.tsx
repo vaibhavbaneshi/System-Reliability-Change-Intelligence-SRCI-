@@ -11,6 +11,8 @@ import ChangeIntelligence from '@/pages/ChangeIntelligence'
 import ChangeImpactPage from '@/pages/ChangeImpactPage'
 import Analytics from '@/pages/Analytics'
 import Settings from '@/pages/Settings'
+import Integrations from '@/pages/Integrations'
+import PullRequests from '@/pages/PullRequests'
 import NotFound from '@/pages/NotFound'
 
 function App() {
@@ -27,6 +29,8 @@ function App() {
           <Route path="/services" element={<Services />} />
           <Route path="/changes" element={<ChangeIntelligence />} />
           <Route path="/changes/:id/impact" element={<ChangeImpactPage />} />
+          <Route path="/pull-requests" element={<PullRequests />} />
+          <Route path="/integrations" element={<Integrations />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />

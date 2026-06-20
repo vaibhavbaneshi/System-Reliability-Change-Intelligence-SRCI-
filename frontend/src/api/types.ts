@@ -103,6 +103,70 @@ export interface Change {
   description: string
   git_ref: string
   created_at: string
+  source?: string
+  commit_sha?: string | null
+  pr_number?: number | null
+}
+
+export interface GitConnection {
+  id: string
+  provider: string
+  owner: string
+  repo: string
+  full_name: string
+  default_branch: string
+  token_masked: string
+  auto_sync: boolean
+  ingest_services_from_repo: boolean
+  last_sync_at: string | null
+  last_sync_status: string | null
+  last_sync_message: string | null
+  created_at: string
+  webhook_url: string
+}
+
+export interface GitConnectResponse {
+  connection: GitConnection
+  webhook_secret: string
+  webhook_setup: {
+    url: string
+    secret: string
+    events: string[]
+    instructions: string
+  }
+  services_ingested: { ingested?: number } | null
+  initial_sync: Record<string, unknown>
+}
+
+export interface PullRequestCheck {
+  id: string
+  connection_id: string
+  pr_number: number
+  title: string
+  head_sha: string
+  base_branch: string
+  state: string
+  risk_band: string | null
+  risk_score: number | null
+  merge_recommendation: string | null
+  services_touched: string[]
+  change_id: string | null
+  html_url: string | null
+  updated_at: string
+  repo: string
+}
+
+export interface GitEvent {
+  id: string
+  event_type: string
+  git_ref: string | null
+  pr_number: number | null
+  commit_message: string | null
+  author: string | null
+  services_touched: string[]
+  change_id: string | null
+  created_at: string
+  repo: string
 }
 
 export interface GraphNode {

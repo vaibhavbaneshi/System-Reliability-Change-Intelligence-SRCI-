@@ -39,6 +39,14 @@ export default function ChangeIntelligence() {
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary">{change.change_type}</Badge>
+                    {change.source && change.source !== 'manual' && (
+                      <Badge variant="outline" className="capitalize">
+                        {change.source.replace('github_', 'git ')}
+                      </Badge>
+                    )}
+                    {change.pr_number != null && (
+                      <Badge variant="outline">PR #{change.pr_number}</Badge>
+                    )}
                     <span className="text-xs font-mono text-muted-foreground">{change.id}</span>
                   </div>
                   <p className="font-medium text-foreground">{change.description}</p>

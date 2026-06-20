@@ -21,6 +21,7 @@ PUBLIC_PATHS = frozenset(
         "/redoc",
         "/auth/login",
         "/auth/oauth/callback",
+        "/webhooks/github",
     }
 )
 

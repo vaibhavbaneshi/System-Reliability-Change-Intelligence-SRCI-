@@ -20,5 +20,6 @@ psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_phase15_autonomy.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_rca_summary_columns.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_phase17_enterprise.sql"
 psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_phase15_4_graph.sql"
+psql "$DATABASE_URL" -f "$MIGRATIONS_DIR/add_phase18_git_integration.sql"
 
 echo "All migrations completed successfully."

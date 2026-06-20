@@ -8,6 +8,8 @@ import {
   BarChart3,
   Settings,
   Radio,
+  GitPullRequest,
+  Plug,
   Box,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -32,6 +34,7 @@ const sections = [
       { label: 'Services', icon: Box, href: '/services' },
       { label: 'Service Dependencies', icon: Network, href: '/service-dependencies' },
       { label: 'Changes', icon: GitBranch, href: '/changes' },
+      { label: 'Pull Requests', icon: GitPullRequest, href: '/pull-requests' },
     ],
   },
   {
@@ -40,7 +43,10 @@ const sections = [
   },
   {
     title: 'Administration',
-    items: [{ label: 'Settings', icon: Settings, href: '/settings' }],
+    items: [
+      { label: 'Integrations', icon: Plug, href: '/integrations' },
+      { label: 'Settings', icon: Settings, href: '/settings' },
+    ],
   },
 ]
 
@@ -117,7 +123,7 @@ export default function Sidebar({ isOpen, onNavigate }: SidebarProps) {
           !isOpen && 'text-center',
         )}
       >
-        {isOpen ? 'Phase 16 · Incident intelligence' : 'P16'}
+        {isOpen ? 'Phase 18 · Git + RCA' : 'P18'}
       </div>
     </div>
   )

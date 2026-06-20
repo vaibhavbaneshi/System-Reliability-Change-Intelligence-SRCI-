@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20 (Phase 17 complete)  
+**Last updated:** 2026-06-20 (Phase 18 complete)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -29,9 +29,10 @@ Related docs (audit snapshots, not living):
 | 15.4 | Advanced Graph Intelligence | **Complete** | 6 | 6 | 100% |
 | 16 | SRE Copilot Experience | **Complete** | 10 | 10 | 100% |
 | 17 | Enterprise Readiness | **Complete** | 10 | 10 | 100% |
+| 18 | Git Plug-and-Play | **Complete** | 8 | 8 | 100% |
 | — | Dev hygiene (parallel) | In progress | 4 | 10 | 40% |
 
-**Current focus:** Dev hygiene + production hardening  
+**Current focus:** Dev hygiene + real observability ingestion (1.8)  
 **Next task:** H.3 — Structured logging
 
 ---
@@ -82,7 +83,7 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 1.4 | Impact propagation (BFS) | `impact_propagator.py` |
 | [x] | 1.5 | Incident ingestion | `incident_ingestor.py` |
 | [x] | 1.6 | Sample repo (3 services) | `sample_repo/` |
-| [ ] | 1.7 | Real Git/PR ingestion | Documented only |
+| [x] | 1.7 | Real Git/PR ingestion | Phase 18 — UI connect, webhooks, PR checks |
 | [ ] | 1.8 | Log/metric/trace ingestion | Documented only |
 
 ### Read APIs
@@ -247,6 +248,28 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 **Phase 15.4 exit criteria:** Change submit returns estimated blast radius with upstream/downstream breakdown. ✅
 
 See [`docs/PHASE15_4_IMPLEMENTATION_REPORT.md`](PHASE15_4_IMPLEMENTATION_REPORT.md).
+
+---
+
+## Phase 18 — Git Plug-and-Play
+
+**Goal:** Connect GitHub from UI; auto-track commits & pre-merge PR risk.  
+**Status:** Complete (2026-06-20)
+
+| Done | ID | Task | Notes |
+|:----:|----|------|-------|
+| [x] | 18.1 | GitHub connect UI | `/integrations` — PAT + owner/repo |
+| [x] | 18.2 | Service graph from repo | Ingest `*/service.yaml` from GitHub |
+| [x] | 18.3 | Auto change ingest on commit | Sync + push webhook |
+| [x] | 18.4 | Pre-merge PR checks | Blast radius + merge recommendation |
+| [x] | 18.5 | GitHub webhooks | `POST /webhooks/github` |
+| [x] | 18.6 | PR checks UI | `/pull-requests` |
+| [x] | 18.7 | Git activity feed | Events on Integrations page |
+| [x] | 18.8 | Changes source badges | `github_push` / `github_pr` in Changes list |
+
+**Phase 18 exit criteria:** User connects repo in UI; commits and PRs appear without curl. ✅
+
+See [`docs/PHASE18_IMPLEMENTATION_REPORT.md`](PHASE18_IMPLEMENTATION_REPORT.md).
 
 ---
 

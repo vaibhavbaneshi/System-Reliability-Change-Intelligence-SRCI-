@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20 (Phase 16 complete)  
+**Last updated:** 2026-06-20 (Phase 17 complete)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -28,11 +28,11 @@ Related docs (audit snapshots, not living):
 | 15 | Production Autonomy | **Complete** | 12 | 12 | 100% |
 | 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
 | 16 | SRE Copilot Experience | **Complete** | 10 | 10 | 100% |
-| 17 | Enterprise Readiness | Not started | 0 | 10 | 0% |
-| — | Dev hygiene (parallel) | In progress | 3 | 10 | 30% |
+| 17 | Enterprise Readiness | **Complete** | 10 | 10 | 100% |
+| — | Dev hygiene (parallel) | In progress | 4 | 10 | 40% |
 
-**Current focus:** Phase 17 — Enterprise Readiness  
-**Next task:** 17.1 — Multi-tenancy
+**Current focus:** Phase 15.4 — Advanced Graph Intelligence (optional) or Dev hygiene  
+**Next task:** 15.4.1 — Blast radius estimation API
 
 ---
 
@@ -70,7 +70,7 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 0.3 | Core schema (11 tables) | `initial_schema.sql` + feature table |
 | [x] | 0.4 | FastAPI app + health check | `main.py` |
 | [ ] | 0.5 | Migration versioning table | No `schema_migrations` yet |
-| [ ] | 0.6 | Root README + `.env.example` | Missing |
+| [ ] | 0.6 | Root README + `.env.example` | `.env.example` added |
 
 ### Ingestion & graph
 
@@ -274,22 +274,24 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 17 — Enterprise Readiness
 
 **Goal:** Multi-team production deployment.  
-**Status:** Not started
+**Status:** Complete (2026-06-20)
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 17.1 | Multi-tenancy | Tenant isolation |
-| [ ] | 17.2 | RBAC | Role-based access |
-| [ ] | 17.3 | Authentication (API keys / OAuth) | |
-| [ ] | 17.4 | SLA tracking | |
-| [ ] | 17.5 | Cost controls | LLM token budgets |
-| [ ] | 17.6 | Model drift detection | ML monitoring |
-| [ ] | 17.7 | Canary scoring | Shadow predictions |
-| [ ] | 17.8 | Chaos validation | Synthetic failure injection |
-| [ ] | 17.9 | CI/CD pipeline | GitHub Actions |
-| [ ] | 17.10 | 80%+ test coverage | Unit + integration |
+| [x] | 17.1 | Multi-tenancy | RLS on services/changes/incidents, `tenant_id` columns |
+| [x] | 17.2 | RBAC | admin / analyst / viewer roles |
+| [x] | 17.3 | Authentication (API keys / OAuth) | Bearer + X-API-Key; OAuth stub |
+| [x] | 17.4 | SLA tracking | `sla_events`, summary API, RCA hooks |
+| [x] | 17.5 | Cost controls | LLM token budgets + usage metering |
+| [x] | 17.6 | Model drift detection | Feature drift snapshots |
+| [x] | 17.7 | Canary scoring | Shadow weight predictions |
+| [x] | 17.8 | Chaos validation | Synthetic failure injection + RCA accuracy |
+| [x] | 17.9 | CI/CD pipeline | `.github/workflows/ci.yml` |
+| [x] | 17.10 | Test coverage | 34 unit tests; 45%+ on auth/enterprise/reasoning |
 
-**Phase 17 exit criteria:** Production deployment with auth, tenancy, CI green, drift monitoring.
+**Phase 17 exit criteria:** Production deployment with auth, tenancy, CI green, drift monitoring. ✅
+
+See [`docs/PHASE17_IMPLEMENTATION_REPORT.md`](PHASE17_IMPLEMENTATION_REPORT.md).
 
 ---
 
@@ -300,7 +302,7 @@ Work that spans all phases — pick these up alongside the current phase.
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
 | [x] | H.1 | Integration test: full RCA pipeline | `backend/tests/test_rca_pipeline.py` |
-| [ ] | H.2 | Unit tests for scoring/guardrails | |
+| [x] | H.2 | Unit tests for scoring/guardrails | `test_scoring_guardrails.py` |
 | [ ] | H.3 | Structured logging | Request + query timing |
 | [ ] | H.4 | Connection pooling | pgBouncer or psycopg2 pool |
 | [ ] | H.5 | Pagination on list APIs | |

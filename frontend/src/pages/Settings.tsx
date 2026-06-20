@@ -1,27 +1,124 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Play, Square, RefreshCw } from 'lucide-react'
+import { Play, Square, RefreshCw, Shield, Key } from 'lucide-react'
 import { autonomyApi } from '@/api/services'
+import { api, getApiKey, setApiKey, clearApiKey } from '@/api/client'
 import QueryWrapper from '@/components/common/QueryWrapper'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+type AuthMe = {
+  tenant_id: string
+  role: string
+  email: string | null
+  auth_enabled: string
+}
+
+type LlmUsage = {
+  budget_tokens: number
+  used_tokens: number
+  remaining_tokens: number
+  utilization_pct: number
+}
+
 export default function Settings() {
+  const [apiKeyInput, setApiKeyInput] = useState(getApiKey() || '')
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['autonomy-status'],
     queryFn: () => autonomyApi.status(),
     refetchInterval: 15000,
   })
 
+  const authQuery = useQuery({
+    queryKey: ['auth-me'],
+    queryFn: () => api.get<AuthMe>('/auth/me'),
+  })
+
+  const llmQuery = useQuery({
+    queryKey: ['llm-usage'],
+    queryFn: () => api.get<LlmUsage>('/enterprise/llm-usage'),
+  })
+
+  const saveApiKey = () => {
+    if (apiKeyInput.trim()) setApiKey(apiKeyInput.trim())
+    else clearApiKey()
+    authQuery.refetch()
+  }
+
   return (
     <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
         <p className="text-muted-foreground">
-          Autonomy pipeline configuration and operational status.
+          Authentication, cost controls, and autonomy pipeline status.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key size={16} /> API authentication
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            When <code className="font-mono text-xs">SRCI_AUTH_ENABLED=true</code>, set your API key
+            (demo: <code className="font-mono text-xs">srci_demo_key</code>).
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              placeholder="Bearer API key"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              aria-label="API key"
+              className="flex h-9 w-full rounded-md border border-border bg-background px-3 py-1 text-sm"
+            />
+            <Button onClick={saveApiKey}>Save</Button>
+          </div>
+          {authQuery.data && (
+            <div className="text-sm space-y-1 pt-2 border-t border-border">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tenant</span>
+                <span className="font-mono text-xs">{authQuery.data.tenant_id.slice(0, 8)}…</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Role</span>
+                <Badge variant="secondary">{authQuery.data.role}</Badge>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <QueryWrapper isLoading={llmQuery.isLoading} isError={llmQuery.isError} error={llmQuery.error as Error}>
+        {llmQuery.data && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield size={16} /> LLM token budget
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground block text-xs">Used / Budget</span>
+                  <span className="font-mono">
+                    {llmQuery.data.used_tokens.toLocaleString()} /{' '}
+                    {llmQuery.data.budget_tokens.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Utilization</span>
+                  <span className="font-mono">{llmQuery.data.utilization_pct}%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </QueryWrapper>
 
       <QueryWrapper
         isLoading={isLoading}
@@ -103,9 +200,6 @@ export default function Settings() {
                     </Link>
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Use curl or your API client: <code className="font-mono">curl -X POST /autonomy/start</code>
-                </p>
               </CardContent>
             </Card>
           </div>

@@ -1,12 +1,12 @@
 import os
 from contextlib import asynccontextmanager
 
-import psycopg2
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.autonomy.config import AUTONOMY_ENABLED
 from app.autonomy.monitor import get_monitor
+from app.auth.middleware import AuthMiddleware
 from app.api.ingest import router as ingest_router
 from app.api.services import router as services_router
 from app.api.dependencies import router as dependencies_router
@@ -35,6 +35,10 @@ from app.api.feedback import router as feedback_router
 from app.api.metrics import router as metrics_router
 from app.api.incidents_read import router as incidents_read_router
 from app.api.chat import router as chat_router
+from app.api.auth_routes import router as auth_router
+from app.api.sla_routes import router as sla_router
+from app.api.enterprise_routes import router as enterprise_router
+from app.db import get_bypass_connection
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -60,7 +64,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AuthMiddleware)
 
+app.include_router(auth_router)
+app.include_router(sla_router)
+app.include_router(enterprise_router)
 app.include_router(ingest_router)
 app.include_router(services_router)
 app.include_router(dependencies_router)
@@ -92,8 +100,9 @@ app.include_router(chat_router)
 
 
 def check_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = get_bypass_connection()
     conn.close()
+
 
 @app.get("/health")
 def health():
@@ -102,7 +111,8 @@ def health():
         return {"status": "ok", "db": "connected"}
     except Exception as e:
         return {"status": "error", "db": str(e)}
-    
+
+
 @app.get("/")
 def root():
-    return {"message": "SRCI backend running"}
+    return {"message": "SRCI backend running", "phase": "17-enterprise"}

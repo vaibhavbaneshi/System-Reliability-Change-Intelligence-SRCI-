@@ -168,7 +168,9 @@ def build_explanation_response(
         },
     }
 
-    explanation_result = generate_explanation(context)
+    explanation_result = generate_explanation(
+        context, endpoint="rca", incident_id=incident_id
+    )
     escalation = evaluate_escalation(context["context_flags"], rca_summary)
     quality = compute_rca_quality(
         candidates, context["context_flags"], escalation, rca_summary

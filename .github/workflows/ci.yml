@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: srci
+          POSTGRES_PASSWORD: srci
+          POSTGRES_DB: srci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://srci:srci@localhost:5432/srci
+      SRCI_AUTH_ENABLED: "false"
+      SRCI_USE_LLM_EXPLANATIONS: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run migrations
+        working-directory: backend
+        run: bash ../scripts/run_migrations.sh
+
+      - name: Unit tests with coverage
+        run: |
+          cd backend
+          pytest tests/test_phase14_modules.py tests/test_explainer.py \
+            tests/test_auth.py tests/test_rbac.py tests/test_enterprise.py \
+            tests/test_scoring_guardrails.py tests/test_drift_canary.py \
+            tests/test_api_phase17.py \
+            --cov=app/auth --cov=app/enterprise --cov=app/reasoning \
+            --cov=app/genai --cov=app/tenant --cov=app/db.py \
+            --cov-report=term-missing --cov-fail-under=45
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build
+        run: |
+          cd frontend
+          npm ci
+          npm run build

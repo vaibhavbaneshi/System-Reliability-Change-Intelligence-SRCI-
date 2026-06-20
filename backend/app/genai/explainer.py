@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 import json
 import os
 
 from groq import Groq
 
 from app.genai.prompts import EXPLANATION_PROMPT
+from app.enterprise.llm_budget import (
+    LLMBudgetExceeded,
+    check_budget,
+    estimate_tokens_from_response,
+    record_usage,
+)
+from app.tenant.context import get_current_tenant_id
 
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
@@ -95,7 +104,16 @@ Validate this deployment/change via logs, metrics, and recent configuration diff
 """.strip()
 
 
-def _generate_llm_explanation(context: dict, client: Groq) -> str:
+def _generate_llm_explanation(
+    context: dict,
+    client: Groq,
+    *,
+    endpoint: str = "explain",
+    incident_id: str | None = None,
+) -> str:
+    tenant_id = get_current_tenant_id()
+    check_budget(tenant_id, estimated_tokens=1024)
+
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
@@ -108,16 +126,31 @@ def _generate_llm_explanation(context: dict, client: Groq) -> str:
         temperature=0.2,
         max_tokens=1024,
     )
+    prompt_tokens, completion_tokens = estimate_tokens_from_response(response)
+    record_usage(
+        tenant_id,
+        endpoint,
+        prompt_tokens,
+        completion_tokens,
+        model=GROQ_MODEL,
+        incident_id=incident_id,
+    )
+
     content = response.choices[0].message.content
     if not content or not content.strip():
         raise ValueError("Empty LLM response")
     return content.strip()
 
 
-def generate_explanation(context: dict) -> dict:
+def generate_explanation(
+    context: dict,
+    *,
+    endpoint: str = "explain",
+    incident_id: str | None = None,
+) -> dict:
     """
     Returns {"explanation": str, "source": "llm" | "template"}.
-    Falls back to template if LLM is disabled, unavailable, or errors.
+    Falls back to template if LLM is disabled, unavailable, budget exceeded, or errors.
     """
     if not context.get("candidates"):
         return {"explanation": _no_candidates_message(), "source": "template"}
@@ -126,8 +159,19 @@ def generate_explanation(context: dict) -> dict:
         client = _get_client()
         if client is not None:
             try:
-                text = _generate_llm_explanation(context, client)
+                text = _generate_llm_explanation(
+                    context,
+                    client,
+                    endpoint=endpoint,
+                    incident_id=incident_id,
+                )
                 return {"explanation": text, "source": "llm"}
+            except LLMBudgetExceeded:
+                return {
+                    "explanation": _generate_template_explanation(context),
+                    "source": "template",
+                    "budget_exceeded": True,
+                }
             except Exception:
                 pass
 

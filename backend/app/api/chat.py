@@ -63,7 +63,9 @@ def incident_chat(incident_id: str, body: ChatRequest):
             "affected_services": [],
             "hypotheses": [],
             "context_flags": explanation_result.get("context_flags", {}),
-        }
+        },
+        endpoint="chat",
+        incident_id=incident_id,
     )
 
     top = (explanation_result.get("predictions") or [None])[0]

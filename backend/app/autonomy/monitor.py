@@ -2,12 +2,11 @@ import asyncio
 import logging
 from typing import Optional
 
-import psycopg2
-
 from app.autonomy.batch_runner import run_rca_batch
 from app.autonomy.config import POLL_BATCH_LIMIT, POLL_INTERVAL_SEC
 from app.autonomy.metrics import set_active_workers, set_unprocessed_count
 from app.autonomy.worker_pool import get_worker_pool
+from app.db import get_bypass_connection
 
 logger = logging.getLogger("srci.autonomy.monitor")
 
@@ -72,7 +71,7 @@ class AutonomyMonitor:
         return result
 
     def _count_unprocessed(self) -> int:
-        conn = psycopg2.connect(self.db_url)
+        conn = get_bypass_connection()
         cur = conn.cursor()
         cur.execute(
             """

@@ -1,7 +1,10 @@
 import os
 
-import psycopg2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.auth.config import AuthContext
+from app.auth.deps import require_auth
+from app.db import get_connection
 
 router = APIRouter()
 DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -36,8 +39,8 @@ _INCIDENT_SELECT = """
 
 
 @router.get("/incidents")
-def list_incidents():
-    conn = psycopg2.connect(DATABASE_URL)
+def list_incidents(auth: AuthContext = Depends(require_auth)):
+    conn = get_connection(tenant_id=auth.tenant_id)
     cur = conn.cursor()
     cur.execute(f"{_INCIDENT_SELECT} ORDER BY started_at DESC")
     rows = cur.fetchall()
@@ -47,8 +50,8 @@ def list_incidents():
 
 
 @router.get("/incidents/weak-rca")
-def list_weak_rca_incidents():
-    conn = psycopg2.connect(DATABASE_URL)
+def list_weak_rca_incidents(auth: AuthContext = Depends(require_auth)):
+    conn = get_connection(tenant_id=auth.tenant_id)
     cur = conn.cursor()
     cur.execute(
         f"""
@@ -64,8 +67,8 @@ def list_weak_rca_incidents():
 
 
 @router.get("/incidents/{incident_id}")
-def get_incident(incident_id: str):
-    conn = psycopg2.connect(DATABASE_URL)
+def get_incident(incident_id: str, auth: AuthContext = Depends(require_auth)):
+    conn = get_connection(tenant_id=auth.tenant_id)
     cur = conn.cursor()
     cur.execute(f"{_INCIDENT_SELECT} WHERE id = %s", (incident_id,))
     row = cur.fetchone()

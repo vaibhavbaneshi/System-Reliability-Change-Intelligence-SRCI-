@@ -1,5 +1,10 @@
-import psycopg2
+from __future__ import annotations
+
 from typing import List
+
+from app.db import get_connection
+from app.tenant.context import get_current_tenant_id
+
 
 def ingest_change(
     db_url: str,
@@ -7,22 +12,22 @@ def ingest_change(
     description: str,
     git_ref: str,
     services_touched: List[str],
+    tenant_id: str | None = None,
 ):
-    conn = psycopg2.connect(db_url)
+    tid = tenant_id or get_current_tenant_id()
+    conn = get_connection(tenant_id=tid)
     cur = conn.cursor()
 
-    # 1) Insert change record
     cur.execute(
         """
-        INSERT INTO changes (change_type, description, git_ref)
-        VALUES (%s, %s, %s)
+        INSERT INTO changes (change_type, description, git_ref, tenant_id)
+        VALUES (%s, %s, %s, %s)
         RETURNING id
         """,
-        (change_type, description, git_ref),
+        (change_type, description, git_ref, tid),
     )
     change_id = cur.fetchone()[0]
 
-    # 2) Resolve service IDs for touched services
     cur.execute(
         """
         SELECT id, name
@@ -33,7 +38,6 @@ def ingest_change(
     )
     service_rows = cur.fetchall()
 
-    # 3) Record direct impacts (highest confidence)
     for service_id, _ in service_rows:
         cur.execute(
             """

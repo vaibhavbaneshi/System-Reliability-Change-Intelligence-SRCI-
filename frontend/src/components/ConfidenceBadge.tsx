@@ -65,13 +65,19 @@ export default function ConfidenceBadge({
     )
   }
 
+  const getConfidenceBorder = (conf: number) => {
+    if (conf >= 80) return 'border-green-500'
+    if (conf >= 60) return 'border-yellow-500'
+    return 'border-orange-500'
+  }
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div className={cn(
         'relative flex items-center justify-center font-bold rounded-full border-2',
         sizeClasses[size],
         getConfidenceBg(confidence),
-        `border-${confidence >= 80 ? 'green' : confidence >= 60 ? 'yellow' : 'orange'}-500`
+        getConfidenceBorder(confidence)
       )}>
         <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle

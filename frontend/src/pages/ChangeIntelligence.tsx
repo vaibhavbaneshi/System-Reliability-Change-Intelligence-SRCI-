@@ -1,44 +1,63 @@
-import { TrendingUp } from 'lucide-react'
-import { mockChanges } from '../data/mockData'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowUpRight } from 'lucide-react'
+import { changesApi } from '@/api/services'
+import QueryWrapper from '@/components/common/QueryWrapper'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 
 export default function ChangeIntelligence() {
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['changes'],
+    queryFn: () => changesApi.list(),
+  })
+
+  const changes = data ?? []
+
   return (
-    <div className="p-8 max-w-7xl space-y-6">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Change Intelligence</h1>
-        <p className="text-muted-foreground">Deployment tracking and incident correlation analysis</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Change intelligence</h1>
+        <p className="text-muted-foreground">
+          Track deployments and configuration changes linked to incident analysis.
+        </p>
       </div>
 
-      <div className="space-y-4">
-        {mockChanges.map(change => (
-          <div key={change.id} className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-all">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground mb-1">{change.title}</h3>
-                <p className="text-sm text-muted-foreground mb-3">Service: {change.service} • Author: {change.author}</p>
-                <div className="text-xs text-muted-foreground">
-                  {change.timestamp.toLocaleString()}
-                </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground mb-1">Risk Score</p>
-                  <p className={`text-lg font-bold ${change.riskScore > 60 ? 'text-orange-400' : change.riskScore > 40 ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {change.riskScore}
+      <QueryWrapper
+        isLoading={isLoading}
+        isError={isError}
+        error={error as Error}
+        onRetry={refetch}
+        isEmpty={changes.length === 0}
+        emptyTitle="No changes recorded"
+        emptyDescription="Changes will appear here when ingested from your change pipeline."
+      >
+        <div className="space-y-3">
+          {changes.map((change) => (
+            <Card key={change.id} className="hover:border-primary/30 transition-colors">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary">{change.change_type}</Badge>
+                    <span className="text-xs font-mono text-muted-foreground">{change.id}</span>
+                  </div>
+                  <p className="font-medium text-foreground">{change.description}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{change.git_ref}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(change.created_at).toLocaleString()}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground mb-1">Correlated Incidents</p>
-                  <p className={`text-lg font-bold flex items-center gap-1 ${change.correlatedIncidents > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {change.correlatedIncidents}
-                    {change.correlatedIncidents > 0 && <TrendingUp size={16} />}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+                <Link
+                  to={`/changes/${change.id}/impact`}
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline shrink-0"
+                >
+                  View blast radius <ArrowUpRight size={14} />
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </QueryWrapper>
     </div>
   )
 }

@@ -1,266 +1,241 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Zap } from 'lucide-react'
-import {
-  SeverityBadge,
-  ConfidenceBadge,
-  RCAHypothesisCard,
-  TimelineEvent,
-  InvestigationProgress,
-  DecisionTraceNode,
-  EvidenceCard,
-  AIRecommendationPanel,
-} from '../components'
-import { getIncidentById } from '../data/mockData'
-
-type TabType = 'summary' | 'timeline' | 'hypotheses' | 'evidence' | 'decision-trace' | 'feedback'
+import { Link, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Loader2, Play, Clock, Server } from 'lucide-react'
+import { incidentsApi } from '@/api/incidents'
+import { rcaApi } from '@/api/rca'
+import Breadcrumbs from '@/components/layout/Breadcrumbs'
+import QueryWrapper from '@/components/common/QueryWrapper'
+import ConfidenceBandBadge from '@/components/rca/ConfidenceBandBadge'
+import ExplanationPanel from '@/components/rca/ExplanationPanel'
+import HypothesisList from '@/components/rca/HypothesisList'
+import DecisionTracePanel from '@/components/rca/DecisionTracePanel'
+import FeedbackPanel from '@/components/rca/FeedbackPanel'
+import RiskPanel from '@/components/rca/RiskPanel'
+import RcaChatPanel from '@/components/chat/RcaChatPanel'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { severityColor } from '@/lib/utils'
 
 export default function IncidentDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const incident = getIncidentById(id || '')
-  const [activeTab, setActiveTab] = useState<TabType>('summary')
-  const [expandedTrace, setExpandedTrace] = useState<string | null>(null)
+  const { id = '' } = useParams()
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('summary')
 
-  if (!incident) {
-    return (
-      <div className="p-8">
-        <button
-          onClick={() => navigate('/incidents')}
-          className="flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
-        >
-          <ArrowLeft size={18} />
-          Back to Incidents
-        </button>
-        <p className="text-muted-foreground">Incident not found</p>
-      </div>
-    )
-  }
+  const incidentQuery = useQuery({
+    queryKey: ['incident', id],
+    queryFn: () => incidentsApi.get(id),
+    enabled: !!id,
+  })
 
-  const tabs = [
-    { id: 'summary', label: 'Summary' },
-    { id: 'timeline', label: 'Timeline' },
-    { id: 'hypotheses', label: 'Hypotheses' },
-    { id: 'evidence', label: 'Evidence' },
-    { id: 'decision-trace', label: 'Decision Trace' },
-    { id: 'feedback', label: 'Feedback' },
-  ] as const
+  const explanationQuery = useQuery({
+    queryKey: ['explanation', id],
+    queryFn: () => rcaApi.explain(id),
+    enabled: !!id,
+    retry: false,
+  })
+
+  const evidenceQuery = useQuery({
+    queryKey: ['evidence', id],
+    queryFn: () => rcaApi.evidence(id),
+    enabled: !!id && activeTab === 'evidence',
+  })
+
+  const runRcaMutation = useMutation({
+    mutationFn: () => rcaApi.run(id),
+    onSuccess: (data) => {
+      toast.success('RCA completed')
+      queryClient.setQueryData(['explanation', id], data)
+      queryClient.invalidateQueries({ queryKey: ['incident', id] })
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'RCA run failed')
+    },
+  })
+
+  const incident = incidentQuery.data
+  const explanation = explanationQuery.data
+  const predictions = explanation?.predictions ?? []
 
   return (
-    <div className="p-8 max-w-7xl space-y-6">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate('/incidents')}
-        className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Incidents', href: '/incidents' },
+          { label: incident?.title ?? id },
+        ]}
+      />
+
+      <QueryWrapper
+        isLoading={incidentQuery.isLoading}
+        isError={incidentQuery.isError}
+        error={incidentQuery.error as Error}
+        onRetry={() => incidentQuery.refetch()}
       >
-        <ArrowLeft size={18} />
-        Back to Incidents
-      </button>
+        {incident && (
+          <>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border">
+                        {incident.id}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${severityColor(incident.severity)}`}>
+                        {incident.severity}
+                      </span>
+                      {incident.auto_rca_should_escalate && <Badge variant="destructive">Escalate</Badge>}
+                      {incident.auto_rca_in_progress && <Badge variant="warning">RCA in progress</Badge>}
+                    </div>
+                    <h1 className="text-2xl font-bold text-foreground">{incident.title}</h1>
+                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      {incident.started_at && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          Started {new Date(incident.started_at).toLocaleString()}
+                        </span>
+                      )}
+                      {incident.affected_services.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Server size={12} />
+                          {incident.affected_services.map((s) => s.name).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      to={`/incidents/${id}/timeline`}
+                      className="text-xs text-primary hover:underline inline-block"
+                    >
+                      View change timeline →
+                    </Link>
+                  </div>
 
-      {/* Command Center Header */}
-      <div className="bg-gradient-to-r from-card to-card/80 border border-border rounded-lg p-8 space-y-6">
-        {/* Title and Badge */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-4 h-4 rounded-full ${incident.status === 'resolved' ? 'bg-green-500' : incident.status === 'investigating' ? 'bg-yellow-500' : 'bg-red-500'} ${incident.status !== 'resolved' && 'animate-pulse'}`}></div>
-              <h1 className="text-3xl font-bold text-foreground">{incident.title}</h1>
-            </div>
-            <p className="text-muted-foreground">ID: {incident.id}</p>
-          </div>
-          <SeverityBadge severity={incident.severity} size="lg" animated={incident.status !== 'resolved'} />
-        </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+                    <ConfidenceBandBadge
+                      hybridScore={incident.auto_rca_hybrid_score ?? explanation?.rca_summary?.hybrid_score}
+                      confidenceBand={incident.auto_rca_confidence_band ?? explanation?.rca_summary?.confidence_band}
+                    />
+                    <Button
+                      onClick={() => runRcaMutation.mutate()}
+                      disabled={runRcaMutation.isPending || incident.auto_rca_in_progress}
+                      aria-label="Run RCA analysis"
+                    >
+                      {runRcaMutation.isPending || incident.auto_rca_in_progress ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                      {runRcaMutation.isPending || incident.auto_rca_in_progress ? 'Running RCA…' : 'Run RCA'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-5 gap-4 pt-4 border-t border-border">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Status</p>
-            <p className="font-semibold text-foreground capitalize">{incident.status}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Service</p>
-            <p className="font-semibold text-foreground">{incident.service}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Duration</p>
-            <p className="font-semibold text-foreground">{incident.duration}m</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Blast Radius</p>
-            <p className="font-semibold text-orange-400">{incident.blastRadius}%</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Owner</p>
-            <p className="font-semibold text-foreground">{incident.owner}</p>
-          </div>
-        </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList aria-label="Incident workspace sections">
+                <TabsTrigger value="summary">Summary</TabsTrigger>
+                <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
+                <TabsTrigger value="evidence">Evidence</TabsTrigger>
+                <TabsTrigger value="trace">Decision Trace</TabsTrigger>
+                <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                <TabsTrigger value="chat">Chat</TabsTrigger>
+              </TabsList>
 
-        {/* RCA Confidence & Action */}
-        <div className="flex items-center justify-between pt-4 border-t border-border">
-          <div className="flex-1">
-            <ConfidenceBadge confidence={incident.rcaConfidence} size="lg" variant="linear" showPercentage={true} />
-          </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium">
-            <Zap size={18} />
-            Run RCA Analysis
-          </button>
-        </div>
-      </div>
+              <TabsContent value="summary">
+                {explanationQuery.isLoading && !explanation ? (
+                  <Card>
+                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                      Loading RCA summary…
+                    </CardContent>
+                  </Card>
+                ) : explanation ? (
+                  <div className="space-y-6">
+                    <ExplanationPanel
+                      explanation={explanation.explanation}
+                      explanationSource={explanation.explanation_source}
+                    />
+                    <RiskPanel
+                      escalation={explanation.escalation}
+                      quality={explanation.quality}
+                      contextFlags={explanation.context_flags}
+                    />
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="py-10 text-center space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        No RCA explanation yet. Run RCA to generate analysis.
+                      </p>
+                      <Button onClick={() => runRcaMutation.mutate()} disabled={runRcaMutation.isPending}>
+                        <Play size={16} />
+                        Run RCA
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
 
-      {/* Tabs */}
-      <div className="border-b border-border flex gap-8 overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium transition-colors border-b-2 whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'text-primary border-primary'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+              <TabsContent value="hypotheses">
+                <HypothesisList predictions={predictions} />
+              </TabsContent>
 
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {/* Summary Tab */}
-        {activeTab === 'summary' && (
-          <div className="space-y-6">
-            {/* AI Recommendation */}
-            <AIRecommendationPanel
-              title="Recommended Root Cause"
-              description="Based on analysis of supporting evidence and system correlations"
-              reasoning={[
-                'Memory usage increased 81% in 30 minutes',
-                'Connection pool exhaustion correlates with memory spike',
-                'Payment processing queue shows retention pattern',
-                'Recent deploy to payment-service may have introduced leak',
-              ]}
-              confidence={incident.rcaConfidence}
-              type="info"
-              action={{
-                label: 'Approve & Proceed',
-                onClick: () => console.log('Approved'),
-              }}
-            />
+              <TabsContent value="evidence">
+                <QueryWrapper
+                  isLoading={evidenceQuery.isLoading}
+                  isError={evidenceQuery.isError}
+                  error={evidenceQuery.error as Error}
+                  onRetry={() => evidenceQuery.refetch()}
+                  isEmpty={(evidenceQuery.data?.evidence.length ?? 0) === 0}
+                  emptyTitle="No evidence linked"
+                  emptyDescription="Evidence records will appear when linked to this incident."
+                >
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Evidence</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {evidenceQuery.data?.evidence.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-border bg-background/50 p-4 text-sm"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary">{item.source_type}</Badge>
+                            <span className="text-xs text-muted-foreground font-mono">{item.id}</span>
+                          </div>
+                          <p className="text-foreground font-mono text-xs break-all">{item.reference}</p>
+                          {item.created_at && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(item.created_at).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </QueryWrapper>
+              </TabsContent>
 
-            {/* Investigation Progress */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <InvestigationProgress
-                progress={72}
-                currentStep="Analyzing connection pool metrics and memory traces"
-                milestones={[
-                  { id: '1', name: 'Data collection', completed: true },
-                  { id: '2', name: 'Pattern identification', completed: true },
-                  { id: '3', name: 'Correlation analysis', completed: true },
-                  { id: '4', name: 'Hypothesis validation', completed: false },
-                  { id: '5', name: 'RCA finalization', completed: false },
-                ]}
-                estimatedTimeRemaining={12}
-              />
-            </div>
+              <TabsContent value="trace">
+                <DecisionTracePanel predictions={predictions} />
+              </TabsContent>
 
-            {/* Impact Assessment */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <p className="text-xs text-muted-foreground mb-2">Affected Services</p>
-                <p className="text-3xl font-bold text-blue-400">3</p>
-                <p className="text-xs text-muted-foreground mt-2">payment-service, order-service, billing-service</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <p className="text-xs text-muted-foreground mb-2">User Impact</p>
-                <p className="text-3xl font-bold text-red-400">~5.2k</p>
-                <p className="text-xs text-muted-foreground mt-2">users unable to complete transactions</p>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <p className="text-xs text-muted-foreground mb-2">Revenue Impact</p>
-                <p className="text-3xl font-bold text-destructive">$240k</p>
-                <p className="text-xs text-muted-foreground mt-2">estimated during incident window</p>
-              </div>
-            </div>
-          </div>
+              <TabsContent value="feedback">
+                <FeedbackPanel incidentId={id} predictions={predictions} />
+              </TabsContent>
+
+              <TabsContent value="chat">
+                <RcaChatPanel incidentId={id} />
+              </TabsContent>
+            </Tabs>
+          </>
         )}
-
-        {/* Timeline Tab */}
-        {activeTab === 'timeline' && (
-          <div className="bg-card border border-border rounded-lg p-8">
-            <div className="space-y-4">
-              {incident.timeline.map((event, idx) => (
-                <TimelineEvent
-                  key={event.id}
-                  event={event}
-                  isLast={idx === incident.timeline.length - 1}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Hypotheses Tab */}
-        {activeTab === 'hypotheses' && (
-          <div className="space-y-4">
-            {incident.hypotheses.map(hypothesis => (
-              <RCAHypothesisCard
-                key={hypothesis.id}
-                hypothesis={hypothesis}
-                onAccept={() => console.log('Accepted', hypothesis.id)}
-                onReject={() => console.log('Rejected', hypothesis.id)}
-                onInvestigate={() => console.log('Investigate', hypothesis.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Evidence Tab */}
-        {activeTab === 'evidence' && (
-          <div className="space-y-4">
-            {incident.evidence.map(ev => (
-              <EvidenceCard key={ev.id} evidence={ev} />
-            ))}
-          </div>
-        )}
-
-        {/* Decision Trace Tab */}
-        {activeTab === 'decision-trace' && (
-          <div className="bg-card border border-border rounded-lg p-8 space-y-6">
-            <p className="text-muted-foreground text-sm">
-              Follow the AI's reasoning process from initial observations through final recommendations.
-            </p>
-            <div className="space-y-8">
-              {incident.decisionTrace.map((step, idx) => (
-                <DecisionTraceNode
-                  key={step.id}
-                  step={step}
-                  isLast={idx === incident.decisionTrace.length - 1}
-                  expanded={expandedTrace === step.id}
-                  onExpand={() => setExpandedTrace(expandedTrace === step.id ? null : step.id)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Feedback Tab */}
-        {activeTab === 'feedback' && (
-          <div className="bg-card border border-border rounded-lg p-6 text-center py-12">
-            <p className="text-muted-foreground mb-4">Provide feedback on this RCA to improve future analysis</p>
-            <div className="flex items-center justify-center gap-4">
-              <button className="px-6 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/30 transition-colors font-medium">
-                Accurate
-              </button>
-              <button className="px-6 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/30 transition-colors font-medium">
-                Partially Accurate
-              </button>
-              <button className="px-6 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium">
-                Inaccurate
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      </QueryWrapper>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20 (Phase 15 foundation)  
+**Last updated:** 2026-06-20 (Phase 16 complete)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -27,12 +27,12 @@ Related docs (audit snapshots, not living):
 | 14 | Advanced RCA Intelligence | **Complete** | 32 | 32 | 100% |
 | 15 | Production Autonomy | **Complete** | 12 | 12 | 100% |
 | 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
-| 16 | SRE Copilot Experience | Not started | 0 | 10 | 0% |
+| 16 | SRE Copilot Experience | **Complete** | 10 | 10 | 100% |
 | 17 | Enterprise Readiness | Not started | 0 | 10 | 0% |
 | — | Dev hygiene (parallel) | In progress | 3 | 10 | 30% |
 
-**Current focus:** Phase 16 — SRE Copilot Experience  
-**Next task:** 16.1 — Incident dashboard
+**Current focus:** Phase 17 — Enterprise Readiness  
+**Next task:** 17.1 — Multi-tenancy
 
 ---
 
@@ -251,23 +251,23 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 16 — SRE Copilot Experience
 
 **Goal:** Human-facing product — dashboards and conversational RCA.  
-**Status:** Not started  
-**Depends on:** Phase 15 metrics + Phase 14 run-rca
+**Status:** Complete (100%)  
+**Depends on:** Phase 15 metrics + Phase 14 run-rca ✅
 
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
-| [ ] | 16.1 | Incident dashboard | See `docs/03_modules/dashboard.md` |
-| [ ] | 16.2 | RCA dashboard | Hypothesis ranking UI |
-| [ ] | 16.3 | Confidence visualizations | Bands, traces, feature vectors |
-| [ ] | 16.4 | Failure risk panels | |
-| [ ] | 16.5 | Dependency graph visualization | Interactive |
-| [ ] | 16.6 | Change impact report UI | Blast radius visual |
-| [ ] | 16.7 | Human review workflow | Confirm/reject/correct RCA |
-| [ ] | 16.8 | RCA chat interface | *"Why is billing failing?"* |
-| [ ] | 16.9 | Weak RCA queue view | *"Show weak RCAs today"* |
-| [ ] | 16.10 | Change timeline view | *"What changed before this outage?"* |
+| [x] | 16.1 | Incident dashboard | 2026-06-20 — API-backed `/incidents` + Dashboard |
+| [x] | 16.2 | RCA dashboard | 2026-06-20 — IncidentDetail workspace |
+| [x] | 16.3 | Confidence visualizations | 2026-06-20 — hybrid_score + bands + decision trace |
+| [x] | 16.4 | Failure risk panels | 2026-06-20 — RiskPanel escalation/quality |
+| [x] | 16.5 | Dependency graph visualization | 2026-06-20 — React Flow |
+| [x] | 16.6 | Change impact report UI | 2026-06-20 — `/changes/:id/impact` |
+| [x] | 16.7 | Human review workflow | 2026-06-20 — Feedback API integration |
+| [x] | 16.8 | RCA chat interface | 2026-06-20 — Chat tab + `/chat` endpoint |
+| [x] | 16.9 | Weak RCA queue view | 2026-06-20 — `/weak-rca-queue` |
+| [x] | 16.10 | Change timeline view | 2026-06-20 — `/incidents/:id/timeline` |
 
-**Phase 16 exit criteria:** SRE can investigate an incident entirely through the UI without curl.
+**Phase 16 exit criteria:** SRE can investigate an incident entirely through the UI without curl. ✅
 
 ---
 
@@ -333,6 +333,7 @@ Work that spans all phases — pick these up alongside the current phase.
 | 2026-06-20 | Sprint 3: Groq LLM explainer (template fallback), label assignment API, escalation engine. |
 | 2026-06-20 | Phase 14 complete: quality scoring, failure analysis, evaluation endpoint, batch RCA, centralized weights, graph unification, batch SQL. |
 | 2026-06-20 | Phase 15 complete: autonomy monitor, event-driven RCA, worker pool, distributed locks, Prometheus/Grafana, PagerDuty/Datadog hooks, feedback/learning loop, prod compose. |
+| 2026-06-20 | Phase 16 complete: API-backed React frontend, incident workspace, React Flow graph, RCA chat, feedback workflow, weak RCA queue. See `docs/PHASE16_IMPLEMENTATION_REPORT.md`. |
 | | *Add new rows here as phases expand.* |
 
 ---

@@ -1,69 +1,76 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    /* Premium Dark Enterprise Aesthetic */
-    --background: 217 32% 3%;
-    --foreground: 220 13% 91%;
-    
-    --card: 217 32% 17%;
-    --card-foreground: 220 13% 91%;
-    
-    --primary: 217 91% 60%;
-    --primary-foreground: 217 91% 60%;
-    
-    --secondary: 217 33% 45%;
-    --secondary-foreground: 220 13% 91%;
-    
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --muted: 217 12% 63%;
-    --muted-foreground: 217 12% 63%;
-    
-    --accent: 16 92% 82%;
-    --accent-foreground: 217 32% 17%;
-    
-    --input: 217 32% 17%;
-    --ring: 217 91% 60%;
-    --border: 217 32% 35%;
-    
-    --radius: 0.5rem;
+@theme {
+  --color-background: hsl(217 32% 3%);
+  --color-foreground: hsl(220 13% 91%);
+  
+  --color-card: hsl(217 32% 14%);
+  --color-card-foreground: hsl(220 13% 91%);
+  
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-foreground: hsl(220 13% 95%);
+  
+  --color-secondary: hsl(217 33% 45%);
+  --color-secondary-foreground: hsl(220 13% 91%);
+  
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  
+  --color-muted: hsl(217 12% 63%);
+  --color-muted-foreground: hsl(217 12% 63%);
+  
+  --color-accent: hsl(16 92% 82%);
+  --color-accent-foreground: hsl(217 32% 17%);
+  
+  --color-input: hsl(217 32% 17%);
+  --color-ring: hsl(217 91% 60%);
+  --color-border: hsl(217 32% 28%);
+  
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
 
-    /* Semantic Severity Colors */
-    --severity-critical: 0 84% 60%;
-    --severity-warning: 38 92% 50%;
-    --severity-info: 47 97% 60%;
-    --severity-success: 142 76% 36%;
-    
-    /* Confidence Gradient */
-    --confidence-low: 38 92% 50%;
-    --confidence-medium: 47 97% 60%;
-    --confidence-high: 142 76% 36%;
-  }
+  /* Semantic Severity Colors */
+  --color-severity-critical: hsl(0 84% 60%);
+  --color-severity-warning: hsl(38 92% 50%);
+  --color-severity-info: hsl(47 97% 60%);
+  --color-severity-success: hsl(142 76% 36%);
+  
+  /* Confidence Gradient */
+  --color-confidence-low: hsl(38 92% 50%);
+  --color-confidence-medium: hsl(47 97% 60%);
+  --color-confidence-high: hsl(142 76% 36%);
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Base Styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+}
 
-  * {
-    @apply border-border;
+* {
+  border-color: var(--color-border);
+}
+
+/* Custom utilities */
+@utility gradient-confidence {
+  background: linear-gradient(90deg, var(--color-confidence-low), var(--color-confidence-medium), var(--color-confidence-high));
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
-@layer components {
-  .gradient-confidence {
-    background: linear-gradient(90deg, hsl(var(--confidence-low)), hsl(var(--confidence-medium)), hsl(var(--confidence-high)));
-  }
-
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-/* Smooth animations */
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -93,25 +100,14 @@
   }
 }
 
-@layer utilities {
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
+@utility animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
 
-  .animate-slide-in-up {
-    animation: slideInUp 0.4s ease-out;
-  }
+@utility animate-slide-in-up {
+  animation: slideInUp 0.4s ease-out;
+}
 
-  .animate-pulse-soft {
-    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
+@utility animate-pulse-soft {
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

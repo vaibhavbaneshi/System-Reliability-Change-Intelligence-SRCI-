@@ -40,7 +40,7 @@ export default function InvestigationProgress({
       <div className="p-4 bg-background border border-primary/30 rounded-lg">
         <div className="flex items-start gap-3">
           <div className="mt-0.5">
-            <Clock size={16} className="text-primary animate-spin" />
+            <Clock size={16} className="text-primary animate-pulse" />
           </div>
           <div className="flex-1">
             <p className="text-xs text-muted-foreground mb-1">Currently Analyzing</p>

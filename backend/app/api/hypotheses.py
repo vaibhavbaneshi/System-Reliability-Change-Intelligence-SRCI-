@@ -14,6 +14,7 @@ def get_hypotheses_for_incident(incident_id: str):
         """
         SELECT
             id,
+            change_id,
             description,
             confidence,
             created_at
@@ -33,10 +34,11 @@ def get_hypotheses_for_incident(incident_id: str):
         "incident_id": incident_id,
         "hypotheses": [
             {
-                "hypothesis_id": r[0],
-                "description": r[1],
-                "confidence": r[2],
-                "created_at": r[3],
+                "hypothesis_id": str(r[0]),
+                "change_id": str(r[1]) if r[1] else None,
+                "description": r[2],
+                "confidence": float(r[3]) if r[3] is not None else 0.0,
+                "created_at": r[4].isoformat() if r[4] else None,
             }
             for r in rows
         ],

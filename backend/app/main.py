@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import psycopg2
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.autonomy.config import AUTONOMY_ENABLED
 from app.autonomy.monitor import get_monitor
@@ -18,6 +19,7 @@ from app.api.incidents import router as incidents_router
 from app.api.correlation import router as correlate_incident
 from app.api.hypotheses import router as hypotheses_router
 from app.api.evidence import router as evidence_router
+from app.api.evidence_read import router as evidence_read_router
 from app.api.explain import router as explain_router
 from app.api.reasoning import router as reasoning_router
 from app.api.features import router as features_router
@@ -31,6 +33,8 @@ from app.api.rca_failure import router as rca_failure_router
 from app.api.autonomy import router as autonomy_router
 from app.api.feedback import router as feedback_router
 from app.api.metrics import router as metrics_router
+from app.api.incidents_read import router as incidents_read_router
+from app.api.chat import router as chat_router
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -47,6 +51,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SRCI", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv(
+        "SRCI_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(ingest_router)
 app.include_router(services_router)
 app.include_router(dependencies_router)
@@ -59,6 +73,7 @@ app.include_router(incidents_router)
 app.include_router(correlate_incident)
 app.include_router(hypotheses_router)
 app.include_router(evidence_router)
+app.include_router(evidence_read_router)
 app.include_router(explain_router)
 app.include_router(reasoning_router)
 app.include_router(features_router)
@@ -72,6 +87,8 @@ app.include_router(rca_failure_router)
 app.include_router(autonomy_router)
 app.include_router(feedback_router)
 app.include_router(metrics_router)
+app.include_router(incidents_read_router)
+app.include_router(chat_router)
 
 
 def check_db():

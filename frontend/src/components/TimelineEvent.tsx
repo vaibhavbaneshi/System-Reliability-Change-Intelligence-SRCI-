@@ -56,11 +56,7 @@ export default function TimelineEvent({
     <div className="relative">
       {/* Connector Line */}
       {!isLast && (
-        <div className={cn(
-          'absolute left-6 top-20 w-1 bg-gradient-to-b',
-          'from-border to-border/50',
-          'h-8'
-        )} />
+        <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-border to-border/30" />
       )}
 
       {/* Event Node */}

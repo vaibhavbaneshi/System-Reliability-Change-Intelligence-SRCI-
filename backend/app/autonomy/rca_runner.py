@@ -101,36 +101,62 @@ def run_rca_for_incident(db_url: str, incident_id: str) -> dict:
             )
             steps_completed.append("explain")
 
-            release_rca_lock_success(conn, incident_id)
-            rca_circuit_breaker.record_success()
+        release_rca_lock_success(conn, incident_id)
+        rca_circuit_breaker.record_success()
 
-            result = {
-                "incident_id": incident_id,
-                "status": "completed",
-                "steps_completed": steps_completed,
-                "hypotheses_found": len(explanation_result.get("predictions", [])),
-                "predictions": explanation_result.get("predictions", []),
-                "explanation": explanation_result.get("explanation"),
-                "explanation_source": explanation_result.get("explanation_source"),
-                "confidence": explanation_result.get("confidence"),
-                "rca_summary": explanation_result.get("rca_summary"),
-                "debug_trace": explanation_result.get("debug_trace"),
-                "context_flags": explanation_result.get("context_flags"),
-                "escalation": explanation_result.get("escalation"),
-                "quality": explanation_result.get("quality"),
-                "processed_at": datetime.utcnow().isoformat() + "Z",
-            }
+        escalation = explanation_result.get("escalation") or {}
+        quality = explanation_result.get("quality") or {}
+        rca_summary = explanation_result.get("rca_summary") or {}
 
-            escalation = result.get("escalation") or {}
-            if escalation.get("should_escalate"):
-                result["notifications"] = dispatch_escalation_notifications(
-                    incident_id,
-                    escalation,
-                    result.get("rca_summary"),
-                )
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE incidents
+            SET auto_rca_hybrid_score = %s,
+                auto_rca_confidence_band = %s,
+                auto_rca_should_escalate = %s,
+                auto_rca_quality_score = %s,
+                auto_rca_quality_band = %s
+            WHERE id = %s
+            """,
+            (
+                rca_summary.get("hybrid_score"),
+                rca_summary.get("confidence_band"),
+                escalation.get("should_escalate"),
+                quality.get("quality_score"),
+                quality.get("quality_band"),
+                incident_id,
+            ),
+        )
+        conn.commit()
+        cur.close()
 
-            log_otel_span(incident_id, result)
-            return result
+        result = {
+            "incident_id": incident_id,
+            "status": "completed",
+            "steps_completed": steps_completed,
+            "hypotheses_found": len(explanation_result.get("predictions", [])),
+            "predictions": explanation_result.get("predictions", []),
+            "explanation": explanation_result.get("explanation"),
+            "explanation_source": explanation_result.get("explanation_source"),
+            "confidence": explanation_result.get("confidence"),
+            "rca_summary": rca_summary,
+            "debug_trace": explanation_result.get("debug_trace"),
+            "context_flags": explanation_result.get("context_flags"),
+            "escalation": escalation,
+            "quality": quality,
+            "processed_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        if escalation.get("should_escalate"):
+            result["notifications"] = dispatch_escalation_notifications(
+                incident_id,
+                escalation,
+                rca_summary,
+            )
+
+        log_otel_span(incident_id, result)
+        return result
 
     except Exception as exc:
         release_rca_lock_failure(conn, incident_id, str(exc))

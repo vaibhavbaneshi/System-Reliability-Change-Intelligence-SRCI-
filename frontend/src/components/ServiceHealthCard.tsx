@@ -61,7 +61,7 @@ export default function ServiceHealthCard({
           </h3>
         </div>
         {TrendIcon && (
-          <TrendIcon size={16} className={trend === 'up' ? 'text-red-400' : 'text-green-400'} />
+          <TrendIcon size={16} className={trend === 'up' ? 'text-green-400' : 'text-red-400'} />
         )}
       </div>
 

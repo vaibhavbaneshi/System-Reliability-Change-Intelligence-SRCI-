@@ -310,6 +310,7 @@ def sync_connection(connection_id: str, tenant_id: str) -> dict:
                 connection["repo"],
                 connection["tenant_id"],
                 ref=connection["default_branch"],
+                replace_graph=True,
             )
 
         commits = client.list_commits(

@@ -134,7 +134,13 @@ export interface GitConnectResponse {
     events: string[]
     instructions: string
   }
-  services_ingested: { ingested?: number } | null
+  services_ingested: {
+    ingested?: number
+    dependencies_added?: number
+    paths_found?: string[]
+    service_names?: string[]
+    error?: string
+  } | null
   initial_sync: Record<string, unknown>
 }
 

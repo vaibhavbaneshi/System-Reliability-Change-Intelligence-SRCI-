@@ -8,7 +8,7 @@ from app.auth.config import AuthContext
 from app.auth.deps import require_admin, require_auth, require_role
 from app.db import get_bypass_connection, get_connection
 from app.git.github_client import GitHubClient, GitHubError
-from app.git.repo_ingestor import ingest_services_from_github
+from app.git.repo_ingestor import get_workspace_summary, ingest_services_from_github
 from app.git.sync import (
     generate_webhook_secret,
     handle_github_webhook,
@@ -103,7 +103,12 @@ def connect_git(
     services_result = None
     if req.ingest_services_from_repo:
         services_result = ingest_services_from_github(
-            client, req.owner, req.repo, auth.tenant_id, ref=branch
+            client,
+            req.owner,
+            req.repo,
+            auth.tenant_id,
+            ref=branch,
+            replace_graph=True,
         )
 
     sync_result = sync_connection(connection_id, auth.tenant_id)
@@ -123,6 +128,12 @@ def connect_git(
         "services_ingested": services_result,
         "initial_sync": sync_result,
     }
+
+
+@router.get("/git/workspace")
+def git_workspace(auth: AuthContext = Depends(require_auth)):
+    """Summary of services, dependencies, and Git-sourced changes for the tenant."""
+    return get_workspace_summary(auth.tenant_id)
 
 
 @router.get("/git/connections")

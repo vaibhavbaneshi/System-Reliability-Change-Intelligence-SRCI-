@@ -19,4 +19,13 @@ export const gitApi = {
   pullRequests: () => api.get<{ pull_requests: PullRequestCheck[] }>('/git/pull-requests'),
 
   events: () => api.get<{ events: GitEvent[] }>('/git/events'),
+
+  workspace: () =>
+    api.get<{
+      services: number
+      dependencies: number
+      git_changes: number
+      incidents: number
+      git_connections: number
+    }>('/git/workspace'),
 }

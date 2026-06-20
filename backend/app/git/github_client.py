@@ -65,3 +65,22 @@ class GitHubClient:
     def list_root_contents(self, owner: str, repo: str, ref: str | None = None) -> list:
         result = self.get_contents(owner, repo, "", ref=ref)
         return result if isinstance(result, list) else [result]
+
+    def resolve_branch_sha(self, owner: str, repo: str, branch: str) -> str:
+        ref_data = self._request("GET", f"/repos/{owner}/{repo}/git/ref/heads/{branch}")
+        return ref_data["object"]["sha"]
+
+    def list_service_yaml_paths(self, owner: str, repo: str, ref: str | None = None) -> list[str]:
+        """Recursively find all service.yaml files in the repository."""
+        branch = ref or self.validate_repo(owner, repo).get("default_branch", "main")
+        sha = self.resolve_branch_sha(owner, repo, branch)
+        tree = self._request(
+            "GET",
+            f"/repos/{owner}/{repo}/git/trees/{sha}",
+            params={"recursive": "1"},
+        )
+        return sorted(
+            item["path"]
+            for item in tree.get("tree", [])
+            if item.get("type") == "blob" and item.get("path", "").endswith("service.yaml")
+        )

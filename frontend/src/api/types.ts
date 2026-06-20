@@ -86,6 +86,9 @@ export interface Service {
   owner_team: string | null
   criticality: string
   created_at: string
+  source?: string
+  git_yaml_path?: string | null
+  updated_at?: string | null
 }
 
 export interface DependencyEdge {

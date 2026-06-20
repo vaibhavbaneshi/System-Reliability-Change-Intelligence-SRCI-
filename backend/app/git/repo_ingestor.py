@@ -92,14 +92,14 @@ def ingest_services_from_github(
                 continue
             data = yaml.safe_load(_decode_content(files))
             if data and data.get("name"):
-                parsed.append(data)
+                parsed.append({"data": data, "path": path})
         except Exception:
             continue
 
     if not parsed:
         return {"ingested": 0, "dependencies_added": 0, "paths_found": paths, "error": "Could not parse service.yaml files"}
 
-    imported_names = [d["name"] for d in parsed]
+    imported_names = [item["data"]["name"] for item in parsed]
 
     if replace_graph:
         clear_tenant_graph(tenant_id, keep_service_names=imported_names)
@@ -109,14 +109,19 @@ def ingest_services_from_github(
     service_map: dict[str, str] = {}
     ingested = 0
 
-    for data in parsed:
+    for item in parsed:
+        data = item["data"]
+        yaml_path = item["path"]
         cur.execute(
             """
-            INSERT INTO services (name, owner_team, criticality, tenant_id)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO services (name, owner_team, criticality, tenant_id, source, git_yaml_path, updated_at)
+            VALUES (%s, %s, %s, %s, 'git', %s, NOW())
             ON CONFLICT (tenant_id, name) DO UPDATE SET
                 owner_team = EXCLUDED.owner_team,
-                criticality = EXCLUDED.criticality
+                criticality = EXCLUDED.criticality,
+                source = 'git',
+                git_yaml_path = EXCLUDED.git_yaml_path,
+                updated_at = NOW()
             RETURNING id
             """,
             (
@@ -124,6 +129,7 @@ def ingest_services_from_github(
                 data.get("owner_team"),
                 data.get("criticality", "medium"),
                 tenant_id,
+                yaml_path,
             ),
         )
         service_id = str(cur.fetchone()[0])
@@ -131,7 +137,8 @@ def ingest_services_from_github(
         ingested += 1
 
     deps_added = 0
-    for data in parsed:
+    for item in parsed:
+        data = item["data"]
         source_id = service_map.get(data.get("name"))
         if not source_id:
             continue
@@ -165,12 +172,32 @@ def ingest_services_from_github(
     cur.close()
     conn.close()
 
+    _store_service_paths(tenant_id, owner, repo, paths)
+
     return {
         "ingested": ingested,
         "dependencies_added": deps_added,
         "paths_found": paths,
         "service_names": imported_names,
     }
+
+
+def _store_service_paths(tenant_id: str, owner: str, repo: str, paths: list[str]) -> None:
+    import json
+
+    conn = get_connection(tenant_id=tenant_id)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE git_connections
+        SET last_service_paths = %s::jsonb
+        WHERE tenant_id = %s AND owner = %s AND repo = %s
+        """,
+        (json.dumps(paths), tenant_id, owner, repo),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def list_known_services(tenant_id: str) -> list[str]:
@@ -188,6 +215,11 @@ def get_workspace_summary(tenant_id: str) -> dict:
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM services WHERE tenant_id = %s", (tenant_id,))
     services = cur.fetchone()[0]
+    cur.execute(
+        "SELECT COUNT(*) FROM services WHERE tenant_id = %s AND source = 'git'",
+        (tenant_id,),
+    )
+    git_services = cur.fetchone()[0]
     cur.execute(
         """
         SELECT COUNT(*) FROM dependencies d
@@ -208,15 +240,40 @@ def get_workspace_summary(tenant_id: str) -> dict:
     cur.execute("SELECT COUNT(*) FROM incidents WHERE tenant_id = %s", (tenant_id,))
     incidents = cur.fetchone()[0]
     cur.execute(
-        "SELECT COUNT(*) FROM git_connections WHERE tenant_id = %s", (tenant_id,)
+        """
+        SELECT owner, repo, default_branch, last_sync_at, last_service_paths
+        FROM git_connections
+        WHERE tenant_id = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (tenant_id,),
     )
-    connections = cur.fetchone()[0]
+    conn_row = cur.fetchone()
     cur.close()
     conn.close()
+
+    connection = None
+    if conn_row:
+        paths = conn_row[4] or []
+        if isinstance(paths, str):
+            import json
+            paths = json.loads(paths)
+        connection = {
+            "full_name": f"{conn_row[0]}/{conn_row[1]}",
+            "owner": conn_row[0],
+            "repo": conn_row[1],
+            "default_branch": conn_row[2],
+            "last_sync_at": conn_row[3].isoformat() if conn_row[3] else None,
+            "service_yaml_paths": paths,
+        }
+
     return {
         "services": services,
+        "git_services": git_services,
         "dependencies": deps,
         "git_changes": git_changes,
         "incidents": incidents,
-        "git_connections": connections,
+        "git_connections": 1 if connection else 0,
+        "connection": connection,
     }

@@ -23,9 +23,18 @@ export const gitApi = {
   workspace: () =>
     api.get<{
       services: number
+      git_services: number
       dependencies: number
       git_changes: number
       incidents: number
       git_connections: number
+      connection: {
+        full_name: string
+        owner: string
+        repo: string
+        default_branch: string
+        last_sync_at: string | null
+        service_yaml_paths: string[]
+      } | null
     }>('/git/workspace'),
 }

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { GitBranch } from 'lucide-react'
 import { servicesApi } from '@/api/services'
+import GitWorkspaceBanner from '@/components/git/GitWorkspaceBanner'
 import QueryWrapper from '@/components/common/QueryWrapper'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -28,6 +30,8 @@ export default function Services() {
         </p>
       </div>
 
+      <GitWorkspaceBanner />
+
       <QueryWrapper
         isLoading={isLoading}
         isError={isError}
@@ -43,16 +47,28 @@ export default function Services() {
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-semibold text-foreground">{service.name}</h3>
-                  <Badge variant={criticalityVariant(service.criticality)} className="capitalize shrink-0">
-                    {service.criticality}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge variant={criticalityVariant(service.criticality)} className="capitalize">
+                      {service.criticality}
+                    </Badge>
+                    {service.source === 'git' && (
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        <GitBranch size={10} /> Git
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs font-mono text-muted-foreground">{service.id}</p>
+                {service.git_yaml_path && (
+                  <p className="text-xs font-mono text-primary/80 break-all">{service.git_yaml_path}</p>
+                )}
                 {service.owner_team && (
                   <p className="text-xs text-muted-foreground">Team: {service.owner_team}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Added {new Date(service.created_at).toLocaleDateString()}
+                  {service.updated_at
+                    ? `Synced ${new Date(service.updated_at).toLocaleString()}`
+                    : `Added ${new Date(service.created_at).toLocaleDateString()}`}
                 </p>
               </CardContent>
             </Card>

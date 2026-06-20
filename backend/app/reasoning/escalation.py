@@ -1,10 +1,9 @@
 from typing import Optional
 
+from app.config.scoring_weights import ESCALATION_HYBRID_THRESHOLD
+
 
 def evaluate_escalation(context_flags: dict, rca_summary: Optional[dict]) -> dict:
-    """
-    Determine whether an RCA result should be escalated for human review.
-    """
     weak_signal = bool(context_flags.get("weak_signal"))
     close_competition = bool(context_flags.get("close_competition"))
 
@@ -21,8 +20,10 @@ def evaluate_escalation(context_flags: dict, rca_summary: Optional[dict]) -> dic
         reasons.append("close_competition: multiple candidates with similar scores")
     if confidence_band == "low":
         reasons.append("confidence_band: low")
-    if hybrid_score < 0.55:
-        reasons.append(f"hybrid_score: {hybrid_score:.3f} below escalation threshold")
+    if hybrid_score < ESCALATION_HYBRID_THRESHOLD:
+        reasons.append(
+            f"hybrid_score: {hybrid_score:.3f} below escalation threshold"
+        )
 
     should_escalate = bool(reasons)
 

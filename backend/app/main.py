@@ -20,6 +20,9 @@ from app.api.train import router as train_router
 from app.api.predict import router as predict_router
 from app.api.rca import router as rca_router
 from app.api.labels import router as labels_router
+from app.api.evaluate import router as evaluate_router
+from app.api.batch import router as batch_router
+from app.api.rca_failure import router as rca_failure_router
 
 app = FastAPI(title="SRCI")
 
@@ -42,6 +45,9 @@ app.include_router(train_router)
 app.include_router(predict_router)
 app.include_router(rca_router)
 app.include_router(labels_router)
+app.include_router(evaluate_router)
+app.include_router(batch_router)
+app.include_router(rca_failure_router)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

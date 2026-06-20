@@ -157,6 +157,7 @@ def run_rca_for_incident(db_url: str, incident_id: str) -> dict:
             "debug_trace": explanation_result.get("debug_trace"),
             "context_flags": explanation_result.get("context_flags"),
             "escalation": explanation_result.get("escalation"),
+            "quality": explanation_result.get("quality"),
             "processed_at": datetime.utcnow().isoformat() + "Z",
         }
 

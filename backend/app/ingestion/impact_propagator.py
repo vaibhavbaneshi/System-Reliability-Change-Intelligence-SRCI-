@@ -1,11 +1,12 @@
 import psycopg2
-from collections import deque
+
+from app.reasoning.graph_traversal import traverse_downstream_with_depth
+
 
 def propagate_change_impact(db_url: str, change_id):
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
 
-    # 1) Get directly impacted services
     cur.execute(
         """
         SELECT entity_id
@@ -18,49 +19,24 @@ def propagate_change_impact(db_url: str, change_id):
     )
     starting_services = [row[0] for row in cur.fetchall()]
 
-    # 2) BFS through dependency graph
-    queue = deque()
-    visited = set()
+    depths = traverse_downstream_with_depth(
+        conn,
+        starting_services,
+        dependency_types=None,
+    )
 
-    for service_id in starting_services:
-        queue.append((service_id, 0))
-        visited.add(service_id)
+    for service_id, depth in depths.items():
+        if depth == 0:
+            continue
 
-    while queue:
-        current_service, depth = queue.popleft()
-
-        # Find downstream services (who depends on me)
+        impact = "medium" if depth == 1 else "low"
         cur.execute(
             """
-            SELECT source_id
-            FROM dependencies
-            WHERE target_id = %s
-              AND source_type = 'service'
-              AND target_type = 'service'
+            INSERT INTO change_impacts (change_id, entity_type, entity_id, impact_level)
+            VALUES (%s, 'service', %s, %s)
             """,
-            (current_service,),
+            (change_id, service_id, impact),
         )
-
-        for (downstream_service,) in cur.fetchall():
-            if downstream_service in visited:
-                continue
-
-            visited.add(downstream_service)
-
-            if depth == 0:
-                impact = "medium"
-            else:
-                impact = "low"
-
-            cur.execute(
-                """
-                INSERT INTO change_impacts (change_id, entity_type, entity_id, impact_level)
-                VALUES (%s, 'service', %s, %s)
-                """,
-                (change_id, downstream_service, impact),
-            )
-
-            queue.append((downstream_service, depth + 1))
 
     conn.commit()
     cur.close()

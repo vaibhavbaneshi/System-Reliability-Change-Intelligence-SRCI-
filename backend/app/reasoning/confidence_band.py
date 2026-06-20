@@ -1,14 +1,9 @@
+from app.config.scoring_weights import CONFIDENCE_BAND_HIGH, CONFIDENCE_BAND_MEDIUM
+
+
 def compute_confidence_band(score: float) -> str:
-    """
-    Convert numeric hybrid score into human band.
-
-    These thresholds are intentionally conservative
-    to avoid overconfidence in early-stage models.
-    """
-
-    if score >= 0.75:
+    if score >= CONFIDENCE_BAND_HIGH:
         return "high"
-    elif score >= 0.5:
+    if score >= CONFIDENCE_BAND_MEDIUM:
         return "medium"
-    else:
-        return "low"
+    return "low"

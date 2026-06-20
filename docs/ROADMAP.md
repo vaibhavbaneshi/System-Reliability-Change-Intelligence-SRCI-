@@ -1,7 +1,7 @@
 # SRCI Development Roadmap
 
 **Living document — update this file as work completes.**  
-**Last updated:** 2026-06-20 (Phase 14 sprint 3)  
+**Last updated:** 2026-06-20 (Phase 14 complete)  
 **North star:** Autonomous SRE Copilot — *"a senior SRE engineer that never sleeps."*
 
 ---
@@ -24,15 +24,15 @@ Related docs (audit snapshots, not living):
 | Phase | Name | Status | Done | Total | % |
 |-------|------|--------|------|-------|---|
 | 0–13 | Foundation & MVP pipeline | Mostly complete | 28 | 30 | 93% |
-| 14 | Advanced RCA Intelligence | **In progress** | 27 | 32 | 84% |
+| 14 | Advanced RCA Intelligence | **Complete** | 32 | 32 | 100% |
 | 15 | Production Autonomy | Not started | 0 | 12 | 0% |
 | 15.4 | Advanced Graph Intelligence | Not started | 0 | 6 | 0% |
 | 16 | SRE Copilot Experience | Not started | 0 | 10 | 0% |
 | 17 | Enterprise Readiness | Not started | 0 | 10 | 0% |
 | — | Dev hygiene (parallel) | In progress | 3 | 10 | 30% |
 
-**Current focus:** Phase 14 — finish intelligence (quality scoring, evaluation)  
-**Next task:** 14.3.8 — RCA quality scoring module
+**Current focus:** Phase 15 — Production Autonomy  
+**Next task:** 15.1 — Autonomous monitor (poll unprocessed incidents)
 
 ---
 
@@ -124,8 +124,8 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 ## Phase 14 — Advanced RCA Intelligence
 
 **Goal:** Complete the intelligence layer and add autonomy foundations.  
-**Status:** In progress (~75%)  
-**Exit criteria:** Single-call RCA, calibration wired, quality scoring, safety controls, autonomy columns.
+**Status:** Complete (100%)  
+**Exit criteria:** Single-call RCA, calibration wired, quality scoring, safety controls, autonomy columns. ✅
 
 ### 14.1 — Correctness & stabilization
 
@@ -157,9 +157,9 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 14.3.5 | Wire `compute_hybrid_score()` calibration | 2026-06-20 — predictor uses calibrated fusion |
 | [x] | 14.3.6 | Activate Groq LLM in explainer | 2026-06-20 — Groq with template fallback |
 | [x] | 14.3.7 | Label assignment pipeline | 2026-06-20 — `POST /incidents/{id}/labels` |
-| [ ] | 14.3.8 | RCA quality scoring module | Not built |
-| [ ] | 14.3.9 | Failure analysis module | Not built |
-| [ ] | 14.3.10 | Evaluation metrics endpoint | Not built |
+| [x] | 14.3.8 | RCA quality scoring module | 2026-06-20 — `reasoning/rca_quality.py` |
+| [x] | 14.3.9 | Failure analysis module | 2026-06-20 — `GET /incidents/{id}/rca-failure` |
+| [x] | 14.3.10 | Evaluation metrics endpoint | 2026-06-20 — `POST /incidents/{id}/evaluate` |
 
 ### 14.4 — Orchestrated RCA (autonomy bridge)
 
@@ -188,7 +188,7 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | [x] | 14.6.3 | Close competition detection | |
 | [x] | 14.6.4 | Retry with backoff | `autonomy/safety.py` |
 | [x] | 14.6.5 | Circuit breaker | in-process breaker on runner |
-| [ ] | 14.6.6 | Batch processing controls | Not built |
+| [x] | 14.6.6 | Batch processing controls | 2026-06-20 — `POST /rca/batch` |
 | [x] | 14.6.7 | Escalation engine (weak RCA → flag) | 2026-06-20 — `reasoning/escalation.py` |
 
 ### 14.7 — Code consolidation
@@ -196,9 +196,9 @@ Incident → Correlation → Evidence → Features → Prediction → Explanatio
 | Done | ID | Task | Notes |
 |:----:|----|------|-------|
 | [x] | 14.7.1 | Consolidate explanation builder | `reasoning/explanation_builder.py` |
-| [ ] | 14.7.2 | Unify graph traversal semantics | propagator vs `graph_traversal.py` |
-| [ ] | 14.7.3 | Centralize scoring weights | config or DB table |
-| [ ] | 14.7.4 | Batch SQL (replace N+1 loops) | feature_builder, correlator |
+| [x] | 14.7.2 | Unify graph traversal semantics | 2026-06-20 — shared `traverse_downstream_with_depth` |
+| [x] | 14.7.3 | Centralize scoring weights | 2026-06-20 — `config/scoring_weights.py` |
+| [x] | 14.7.4 | Batch SQL (replace N+1 loops) | 2026-06-20 — feature_builder, correlator, predictor |
 
 **Phase 14 exit criteria:** `run-rca` works; autonomy columns populated; retry/CB on runner; quality + evaluation endpoints exist.
 
@@ -318,10 +318,9 @@ Work that spans all phases — pick these up alongside the current phase.
 |--------|-------|------------------|
 | **1** ✅ | Stabilize | 3 bug fixes, demo scripts |
 | **2** ✅ | RCA runner | 14.4 + 14.5 + 14.3.5 + schema hardening |
-| **3** | Intelligence finish | 14.3.6–10, 14.6.7, 14.7 |
-| **4** | Intelligence | 14.3.6–10, 14.7 |
-| **5** | Autonomy | Phase 15.1–15.5 |
-| **6** | Observability | Phase 15.6–15.12 |
+| **3** ✅ | Intelligence finish | 14.3.6–10, 14.6.7, 14.7 |
+| **4** | Autonomy | Phase 15.1–15.5 |
+| **5** | Observability | Phase 15.6–15.12 |
 
 ---
 
@@ -332,6 +331,7 @@ Work that spans all phases — pick these up alongside the current phase.
 | 2026-06-20 | Roadmap created. Phase 14.1.1–14.1.3 marked done. Demo scripts added. |
 | 2026-06-20 | Phase 14 sprint: run-rca endpoint, rca_runner, autonomy columns, schema hardening, calibrated hybrid scorer, retry/CB, explanation builder. |
 | 2026-06-20 | Sprint 3: Groq LLM explainer (template fallback), label assignment API, escalation engine. |
+| 2026-06-20 | Phase 14 complete: quality scoring, failure analysis, evaluation endpoint, batch RCA, centralized weights, graph unification, batch SQL. |
 | | *Add new rows here as phases expand.* |
 
 ---

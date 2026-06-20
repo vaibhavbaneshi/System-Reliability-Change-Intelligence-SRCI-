@@ -1,7 +1,9 @@
 import psycopg2
 import numpy as np
 import joblib
+from collections import defaultdict
 
+from app.config.scoring_weights import GRAPH_PENALTY_FACTOR, ML_WEIGHT, RULE_WEIGHT
 from app.ingestion.evidence_linker import format_change_evidence_reference
 from app.reasoning.hybrid_scorer import compute_hybrid_score
 from app.reasoning.confidence_band import compute_confidence_band
@@ -14,14 +16,8 @@ def predict_for_incident(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
 
-    # -----------------------------
-    # Load trained model
-    # -----------------------------
     model = joblib.load(MODEL_PATH)
 
-    # -----------------------------
-    # Fetch ML features + change info
-    # -----------------------------
     cur.execute(
         """
         SELECT f.change_id,
@@ -30,14 +26,14 @@ def predict_for_incident(db_url: str, incident_id: str):
                f.graph_distance,
                f.criticality_score,
                c.description,
-               c.created_at
+               c.created_at,
+               c.git_ref
         FROM incident_change_features f
         LEFT JOIN changes c ON f.change_id = c.id
         WHERE f.incident_id = %s
         """,
         (incident_id,),
     )
-
     rows = cur.fetchall()
 
     if not rows:
@@ -52,25 +48,65 @@ def predict_for_incident(db_url: str, incident_id: str):
     cur.execute("SELECT COUNT(*) FROM incident_change_features")
     ml_sample_count = cur.fetchone()[0]
 
+    change_ids = [row[0] for row in rows]
+
+    cur.execute(
+        """
+        SELECT change_id, confidence
+        FROM root_cause_hypotheses
+        WHERE incident_id = %s AND change_id = ANY(%s::uuid[])
+        """,
+        (incident_id, change_ids),
+    )
+    rule_confidence_map = {row[0]: float(row[1]) for row in cur.fetchall()}
+
+    references = []
+    ref_to_change = {}
+    for row in rows:
+        change_id, _, _, _, _, _, created_at, git_ref = row
+        if git_ref and created_at:
+            ref = format_change_evidence_reference(git_ref, created_at)
+            references.append(ref)
+            ref_to_change[ref] = change_id
+
+    evidence_counts = defaultdict(int)
+    if references:
+        cur.execute(
+            """
+            SELECT reference, COUNT(*)
+            FROM evidence
+            WHERE incident_id = %s
+              AND source_type = 'change'
+              AND reference = ANY(%s)
+            GROUP BY reference
+            """,
+            (incident_id, references),
+        )
+        for ref, count in cur.fetchall():
+            evidence_counts[ref_to_change[ref]] = count
+
     predictions = []
 
-    # =============================
-    # Score each candidate change
-    # =============================
     for row in rows:
-        change_id = row[0]
-        temporal_proximity = float(row[1])
-        service_overlap = float(row[2])
-        graph_distance = int(row[3])
-        criticality_score = float(row[4])
-        change_description = row[5]
+        (
+            change_id,
+            temporal_proximity,
+            service_overlap,
+            graph_distance,
+            criticality_score,
+            change_description,
+            change_created_at,
+            _git_ref,
+        ) = row
+
+        temporal_proximity = float(temporal_proximity)
+        service_overlap = float(service_overlap)
+        graph_distance = int(graph_distance)
+        criticality_score = float(criticality_score)
         change_created_at = (
-            row[6].isoformat() if row[6] else None
+            change_created_at.isoformat() if change_created_at else None
         )
 
-        # -----------------------------
-        # ML probability
-        # -----------------------------
         features = np.array(
             [
                 temporal_proximity,
@@ -81,48 +117,8 @@ def predict_for_incident(db_url: str, incident_id: str):
         ).reshape(1, -1)
 
         ml_probability = float(model.predict_proba(features)[0][1])
-
-        # -----------------------------
-        # Rule confidence
-        # -----------------------------
-        cur.execute(
-            """
-            SELECT confidence
-            FROM root_cause_hypotheses
-            WHERE incident_id = %s
-              AND change_id = %s
-            LIMIT 1
-            """,
-            (incident_id, change_id),
-        )
-
-        rc_row = cur.fetchone()
-        rule_confidence = float(rc_row[0]) if rc_row else 0.0
-
-        cur.execute(
-            """
-            SELECT git_ref, created_at
-            FROM changes
-            WHERE id = %s
-            """,
-            (change_id,),
-        )
-        change_meta = cur.fetchone()
-        evidence_count = 0
-        if change_meta:
-            git_ref, created_at = change_meta
-            reference = format_change_evidence_reference(git_ref, created_at)
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM evidence
-                WHERE incident_id = %s
-                  AND source_type = 'change'
-                  AND reference = %s
-                """,
-                (incident_id, reference),
-            )
-            evidence_count = cur.fetchone()[0]
+        rule_confidence = rule_confidence_map.get(change_id, 0.0)
+        evidence_count = evidence_counts.get(change_id, 0)
 
         hybrid_score = compute_hybrid_score(
             rule_confidence,
@@ -133,7 +129,7 @@ def predict_for_incident(db_url: str, incident_id: str):
 
         graph_penalty = 0.0
         if graph_distance > 1:
-            graph_penalty = -0.1 * hybrid_score
+            graph_penalty = -GRAPH_PENALTY_FACTOR * hybrid_score
             hybrid_score = max(0.0, hybrid_score + graph_penalty)
 
         hybrid_score = max(0.0, min(1.0, hybrid_score))
@@ -141,8 +137,8 @@ def predict_for_incident(db_url: str, incident_id: str):
 
         decision_trace = {
             "weights": {
-                "rule_weight": 0.6,
-                "ml_weight": 0.4,
+                "rule_weight": RULE_WEIGHT,
+                "ml_weight": ML_WEIGHT,
                 "calibrated": True,
             },
             "components": {
@@ -174,9 +170,6 @@ def predict_for_incident(db_url: str, incident_id: str):
             }
         )
 
-    # -----------------------------
-    # Sort by hybrid score
-    # -----------------------------
     predictions.sort(key=lambda x: x["hybrid_score"], reverse=True)
     predictions = validate_predictions(predictions)
     cur.close()

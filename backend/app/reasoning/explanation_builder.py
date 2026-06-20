@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.genai.explainer import generate_explanation
 from app.ml.predictor import predict_for_incident
 from app.reasoning.escalation import evaluate_escalation
+from app.reasoning.rca_quality import compute_rca_quality
 from app.reasoning.rca_guardrails import (
     detect_weak_signal,
     detect_close_competition,
@@ -169,6 +170,9 @@ def build_explanation_response(
 
     explanation_result = generate_explanation(context)
     escalation = evaluate_escalation(context["context_flags"], rca_summary)
+    quality = compute_rca_quality(
+        candidates, context["context_flags"], escalation, rca_summary
+    )
 
     return {
         "incident_id": incident_id,
@@ -180,4 +184,5 @@ def build_explanation_response(
         "predictions": candidates,
         "context_flags": context["context_flags"],
         "escalation": escalation,
+        "quality": quality,
     }

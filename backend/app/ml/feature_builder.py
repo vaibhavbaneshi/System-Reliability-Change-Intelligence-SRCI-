@@ -1,5 +1,8 @@
 import psycopg2
+from collections import defaultdict
 from datetime import timedelta
+
+from app.config.scoring_weights import CRITICALITY_WEIGHTS, TEMPORAL_WINDOW_HOURS
 from app.reasoning.graph_traversal import get_downstream_services
 
 
@@ -7,7 +10,6 @@ def build_features_for_incident(db_url: str, incident_id: str):
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
 
-    # 1️⃣ Get incident start time
     cur.execute(
         "SELECT started_at FROM incidents WHERE id = %s",
         (incident_id,),
@@ -18,7 +20,6 @@ def build_features_for_incident(db_url: str, incident_id: str):
 
     incident_start = row[0]
 
-    # 2️⃣ Get directly affected services
     cur.execute(
         """
         SELECT entity_id
@@ -29,50 +30,75 @@ def build_features_for_incident(db_url: str, incident_id: str):
         (incident_id,),
     )
     direct_services = [r[0] for r in cur.fetchall()]
-
-    # 3️⃣ Expand downstream services (graph reasoning)
     affected_services = get_downstream_services(conn, direct_services)
 
-    # 4️⃣ Candidate changes (24h window BEFORE incident)
     cur.execute(
         """
         SELECT id, created_at
         FROM changes
         WHERE created_at BETWEEN %s AND %s
         """,
-        (incident_start - timedelta(hours=24), incident_start),
+        (
+            incident_start - timedelta(hours=TEMPORAL_WINDOW_HOURS),
+            incident_start,
+        ),
     )
     changes = cur.fetchall()
 
-    # Idempotency
     cur.execute(
         "DELETE FROM incident_change_features WHERE incident_id = %s",
         (incident_id,),
     )
 
-    for change_id, change_time in changes:
+    if not changes:
+        conn.commit()
+        cur.close()
+        conn.close()
+        return
 
-        # ---------- Temporal Proximity ----------
-        hours_diff = abs((incident_start - change_time).total_seconds()) / 3600
-        temporal_proximity = max(0.0, 1 - (hours_diff / 24))
+    change_ids = [c[0] for c in changes]
 
-        # ---------- Service Overlap ----------
+    cur.execute(
+        """
+        SELECT change_id, entity_id
+        FROM change_impacts
+        WHERE change_id = ANY(%s::uuid[])
+          AND entity_type = 'service'
+        """,
+        (change_ids,),
+    )
+    impacts_by_change = defaultdict(set)
+    all_service_ids = set()
+    for change_id, entity_id in cur.fetchall():
+        impacts_by_change[change_id].add(entity_id)
+        all_service_ids.add(entity_id)
+
+    criticality_map = {}
+    if all_service_ids:
         cur.execute(
             """
-            SELECT entity_id
-            FROM change_impacts
-            WHERE change_id = %s
-              AND entity_type = 'service'
+            SELECT id, criticality
+            FROM services
+            WHERE id = ANY(%s::uuid[])
             """,
-            (change_id,),
+            (list(all_service_ids),),
         )
-        impacted_services = {r[0] for r in cur.fetchall()}
+        for sid, crit in cur.fetchall():
+            criticality_map[sid] = CRITICALITY_WEIGHTS.get(crit, 0.0)
 
-        overlap_count = len(impacted_services.intersection(set(affected_services)))
+    rows_to_insert = []
+    affected_set = set(affected_services)
+
+    for change_id, change_time in changes:
+        hours_diff = abs((incident_start - change_time).total_seconds()) / 3600
+        temporal_proximity = max(
+            0.0, 1 - (hours_diff / TEMPORAL_WINDOW_HOURS)
+        )
+
+        impacted_services = impacts_by_change.get(change_id, set())
+        overlap_count = len(impacted_services.intersection(affected_set))
         service_overlap = min(1.0, overlap_count)
 
-        # ---------- Graph Distance ----------
-        # 0 if direct overlap, 1 if indirect, 2 if weak
         if overlap_count > 0:
             graph_distance = 0
         elif impacted_services:
@@ -80,42 +106,15 @@ def build_features_for_incident(db_url: str, incident_id: str):
         else:
             graph_distance = 2
 
-        # ---------- Criticality Score ----------
         if impacted_services:
-            cur.execute(
-                """
-                SELECT MAX(
-                    CASE criticality
-                        WHEN 'high' THEN 1.0
-                        WHEN 'medium' THEN 0.6
-                        WHEN 'low' THEN 0.3
-                        ELSE 0.0
-                    END
-                )
-                FROM services
-                WHERE id = ANY(%s::uuid[])
-                """,
-                (list(impacted_services),),
+            criticality_score = max(
+                (criticality_map.get(sid, 0.0) for sid in impacted_services),
+                default=0.0,
             )
-
-            criticality_score = cur.fetchone()[0] or 0.0
         else:
             criticality_score = 0.0
 
-
-        # ---------- Insert Feature Row ----------
-        cur.execute(
-            """
-            INSERT INTO incident_change_features
-              (incident_id,
-               change_id,
-               temporal_proximity,
-               service_overlap,
-               graph_distance,
-               criticality_score,
-               label)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
+        rows_to_insert.append(
             (
                 incident_id,
                 change_id,
@@ -123,8 +122,19 @@ def build_features_for_incident(db_url: str, incident_id: str):
                 service_overlap,
                 graph_distance,
                 criticality_score,
-                0,  # label unknown initially
-            ),
+                0,
+            )
+        )
+
+    if rows_to_insert:
+        cur.executemany(
+            """
+            INSERT INTO incident_change_features
+              (incident_id, change_id, temporal_proximity,
+               service_overlap, graph_distance, criticality_score, label)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            rows_to_insert,
         )
 
     conn.commit()
